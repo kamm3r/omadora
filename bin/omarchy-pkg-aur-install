@@ -26,5 +26,5 @@ app_ids=$(flatpak remote-ls --user flathub --app --columns=application 2>/dev/nu
 if [[ -n $app_ids ]]; then
   # shellcheck disable=SC2086
   echo "$app_ids" | tr '\n' ' ' | xargs flatpak install -y --user flathub
-  omarchy-show-done
+  omarchy-show-done $?
 fi

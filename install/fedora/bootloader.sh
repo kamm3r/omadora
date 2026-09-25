@@ -25,7 +25,7 @@ dnf install -y dracut
 #      limine-entry-tool  - kernel cmdline drop-ins + ESP entry management
 #      limine-snapper-sync - snapper snapshot -> limine boot entries
 #    Upstream sources:
-#      https://github.com/basecamp/omarchy (limine-entry-tool.d format,
+#      https://github.com/omacom/omarchy (limine-entry-tool.d format,
 #        limine-snapper-* scripts under default/ and install/)
 #    Build them with the same recipe used for this machine's working set and
 #    verify each binary responds before continuing.

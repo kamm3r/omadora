@@ -20,5 +20,5 @@ pkg_names=$(rpm -qa --queryformat '%{NAME}\n' | sort -u | fzf "${fzf_args[@]}")
 if [[ -n $pkg_names ]]; then
   # Convert newline-separated selections to space-separated for dnf
   echo "$pkg_names" | tr '\n' ' ' | xargs sudo dnf remove -y
-  omarchy-show-done
+  omarchy-show-done $?
 fi

@@ -25,5 +25,5 @@ if [[ -n $pkg_names ]]; then
 
   # Convert newline-separated selections to space-separated for dnf
   echo "$pkg_names" | tr '\n' ' ' | xargs sudo dnf install -y
-  omarchy-show-done
+  omarchy-show-done $?
 fi
