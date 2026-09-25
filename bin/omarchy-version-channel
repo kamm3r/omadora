@@ -1,0 +1,28 @@
+#!/bin/bash
+
+# omarchy:summary=Print the active Omarchy repo and package channel
+
+# Fedora keeps repos in /etc/yum.repos.d. Until Omarchy ships RPM repos,
+# there are no omarchy mirrors to detect, so this reports unknown unless a
+# future omadora repo file lands.
+mirror="unknown"
+pkgs="unknown"
+
+if grep -rq "omarchy.org" /etc/yum.repos.d/ 2>/dev/null; then
+  if grep -rq "omarchy.org/stable" /etc/yum.repos.d/ 2>/dev/null; then
+    mirror="stable"
+    pkgs="stable"
+  elif grep -rq "omarchy.org/rc" /etc/yum.repos.d/ 2>/dev/null; then
+    mirror="rc"
+    pkgs="rc"
+  elif grep -rq "omarchy.org/edge" /etc/yum.repos.d/ 2>/dev/null; then
+    mirror="edge"
+    pkgs="edge"
+  fi
+fi
+
+if [[ $mirror == $pkgs ]]; then
+  echo $mirror
+else
+  echo "$mirror / $pkgs"
+fi

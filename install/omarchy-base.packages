@@ -1,0 +1,179 @@
+# Omadora core package list installed with dnf on Fedora.
+# The ISO builder also reads this file when staging packages.
+# Lines starting with # are notes and are ignored by installers.
+#
+# Repos needed beyond Fedora proper (enabled by install scripts):
+#   terra                    - limine, mise, usage-cli, localsend-bin, uwsm,
+#                              golang-github-jesseduffield-lazygit, asusctl,
+#                              broadcom-wl
+#   lionheartp/Hyprland COPR - hyprland, hyprpicker, hyprsunset,
+#                              hyprland-guiutils, xdg-desktop-portal-hyprland,
+#                              quickshell
+#   RPM Fusion free/nonfree  - codecs, obs-studio, intel-media-driver,
+#                              akmod-nvidia, libva-intel-driver
+#
+# Arch name shown in (parens) where it differs.
+
+# Omarchy's own tools: Arch PKGBUILDs, no RPM yet. Build from source
+# (see FEDORA.md) until an omadora COPR ships them.
+#aether
+#cliamp
+#elsewhen
+#herdr
+#omacalc
+#omacut
+#omasnap
+#omawrite
+#omarchy-nvim
+#owe
+#owe-lockfeed
+#tensaku
+#tobi-try
+#ttfx
+alsa-utils
+avahi
+bash-completion
+bat
+bluez
+bluez-tools
+bolt
+brightnessctl
+btop
+chromium
+clang
+cups
+cups-filters
+cups-pk-helper
+ddcutil
+docker-cli
+moby-engine
+docker-buildx
+docker-compose
+dosfstools
+dotnet-runtime-10.0
+dua-cli
+evince
+exfatprogs
+eza
+fakeroot
+fastfetch
+fcitx5
+fcitx5-gtk
+fcitx5-qt
+fd-find
+ffmpegthumbnailer
+fontconfig
+fontawesome-6-free-fonts
+foot
+ftp
+fzf
+git
+gnome-keyring
+grim
+gpu-screen-recorder
+gum
+gvfs-mtp
+gvfs-nfs
+gvfs-smb
+hostname
+hyprland
+hyprland-guiutils
+hyprpicker
+hyprsunset
+ImageMagick
+imv
+telnet
+tftp
+inotify-tools
+inxi
+NetworkManager
+jq
+kdenlive
+golang-github-jesseduffield-lazygit
+less
+libsecret
+vips
+libyaml
+libreoffice
+llvm
+localsend-bin
+compat-lua
+luarocks
+man-db
+mariadb-connector-c
+mise
+mpv
+mpv-mpris
+nautilus
+nautilus-python
+gnome-disk-utility
+google-noto-sans-fonts
+google-noto-sans-cjk-fonts
+google-noto-color-emoji-fonts
+nss-mdns
+neovim
+obs-studio
+pamixer
+pinta
+plocate
+plymouth
+libpq
+power-profiles-daemon
+python3-gobject
+python3-poetry-core
+ia-writer-nerd-fonts
+qemu-user-binfmt
+qemu-user-static
+qrencode
+qt6-qtimageformats
+quickshell
+ripgrep
+ruby
+sddm
+slurp
+socat
+starship
+sushi
+system-config-printer
+tesseract
+tesseract-langpack-eng
+tldr
+tree-sitter-cli
+tmux
+jetbrainsmono-nerd-fonts
+udiskie
+unzip
+usage-cli
+util-linux-script
+uwsm
+vim-minimal
+whois
+wireless-regdb
+wireplumber
+wl-clipboard
+wtype
+xdg-desktop-portal-gtk
+xdg-desktop-portal-hyprland
+xdg-terminal-exec
+xournalpp
+yaru-icon-theme
+yt-dlp
+zbar
+zoxide
+
+# Dropped from the Arch list (reason in parens):
+# asdcontrol (Apple Silicon only, N/A on x86_64 Fedora)
+# expac (pacman tooling; use dnf repoquery)
+# gnome-themes-extra (retired in Fedora)
+# lazydocker (no RPM; install upstream binary manually)
+# moonlight-qt (no RPM; Flathub com.moonlight_stream.Moonlight)
+# obsidian (no RPM; Flathub md.obsidian.Obsidian)
+# pacman-contrib (pacman tooling; use dnf clean/autoremove)
+# qt6-multimedia, qt6-multimedia-ffmpeg (superseded by OWE; shell is image-only, video via OWE lock feed)
+# tzupdate (no RPM; pipx install tzupdate; Fedora uses chrony)
+# ufw, ufw-docker (replaced by firewalld; see install/config/firewall.sh)
+# webp-pixbuf-loader (retired; WebP is in gdk-pixbuf2)
+# yay (Arch-only AUR helper; dnf + COPR replace it)
+# inetutils (split into hostname/telnet/tftp/ftp above)
+# bluez-utils (merged into bluez on Fedora)
+# qt6-multimedia-ffmpeg (bundled in qt6-qtmultimedia)

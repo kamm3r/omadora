@@ -1,0 +1,18 @@
+#!/bin/bash
+# Fedora implementation of the limine-mkinitcpio helper from Arch's
+# limine-mkinitcpio-hook: rebuilds initramfs images via dracut, then syncs ESP
+# copies and limine.conf entries. Same name and contract, so all existing
+# callers (hibernation setup, hardware quirks, plymouth theming) work unchanged.
+set -euo pipefail
+
+dracut -f --regenerate-all
+
+shopt -s nullglob
+for kdir in /usr/lib/modules/*/; do
+  kver="$(basename "$kdir")"
+  [[ -f $kdir/vmlinuz ]] || continue
+  initrd="/boot/initramfs-$kver.img"
+  [[ -f $initrd ]] || continue
+  echo "Registering kernel-$kver"
+  limine-entry-tool --add-kernel "kernel-$kver" "$initrd" "${kdir}vmlinuz" --quiet
+done

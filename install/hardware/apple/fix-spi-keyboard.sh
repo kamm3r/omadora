@@ -1,0 +1,18 @@
+# Detect MacBook models that need SPI keyboard modules
+product_name="$(cat /sys/class/dmi/id/product_name 2>/dev/null)"
+if [[ $product_name =~ MacBook[89],1|MacBook1[02],1|MacBookPro13,[123]|MacBookPro14,[123] ]]; then
+  echo "Detected MacBook with SPI keyboard"
+
+  # macbook12-spi-driver-dkms has no Fedora RPM; the applespi driver needs an
+  # out-of-tree DKMS build (against kernel-devel) on affected kernels. The
+  # dracut config below still pulls the modules into the initramfs once they
+  # exist, via the limine-mkinitcpio rebuild.
+  sudo mkdir -p /etc/dracut.conf.d
+  if [[ $product_name == "MacBook8,1" ]]; then
+    echo 'add_drivers+=" applespi spi_pxa2xx_platform spi_pxa2xx_pci "' | \
+      sudo tee /etc/dracut.conf.d/macbook_spi_modules.conf >/dev/null
+  else
+    echo 'add_drivers+=" applespi intel_lpss_pci spi_pxa2xx_platform "' | \
+      sudo tee /etc/dracut.conf.d/macbook_spi_modules.conf >/dev/null
+  fi
+fi

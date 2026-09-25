@@ -1,0 +1,20 @@
+#!/bin/bash
+
+# omarchy:summary=Install Sublime Text from its official repository
+
+echo "Installing Sublime Text..."
+sudo rpm --import https://download.sublimetext.com/sublimehq-pub.gpg
+if [[ ! -f /etc/yum.repos.d/sublime-text.repo ]]; then
+  echo "Enabling Sublime Text repository..."
+  sudo tee /etc/yum.repos.d/sublime-text.repo >/dev/null <<'EOF'
+[sublime-text]
+name=Sublime Text - x86_64 - Stable
+baseurl=https://download.sublimetext.com/rpm/stable/x86_64
+enabled=1
+gpgcheck=1
+gpgkey=https://download.sublimetext.com/sublimehq-pub.gpg
+EOF
+fi
+omarchy-pkg-add sublime-text
+
+setsid uwsm-app -- gtk-launch sublime_text >/dev/null 2>&1 &

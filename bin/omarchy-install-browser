@@ -1,0 +1,117 @@
+#!/bin/bash
+
+# omarchy:summary=Install a supported browser
+# omarchy:args=<chromium|chrome|brave|brave-origin|edge|firefox|zen>
+# omarchy:examples=omarchy install browser chromium | omarchy install browser firefox
+
+set -e
+
+source "$OMARCHY_PATH/install/helpers/browser-policy.sh"
+
+setup_chromium_policy_directory() {
+  browser_policy_setup_dir "$1"
+}
+
+announce_browser_installed() {
+  echo ""
+  echo "$1 browser installed. Make it the default via Setup > Defaults > Browser."
+}
+
+copy_chromium_flags() {
+  mkdir -p ~/.config
+  cp -f "$OMARCHY_PATH/config/chromium-flags.conf" "$1"
+  omarchy-install-chromium-copy-url
+  omarchy-install-chromium-ytdlp
+}
+
+setup_firefox_wayland() {
+  mkdir -p ~/.config/environment.d
+  echo "MOZ_ENABLE_WAYLAND=1" > ~/.config/environment.d/omarchy-firefox-wayland.conf
+}
+
+enable_vendor_repo() {
+  # $1 = repo id/file base, $2 = repo name, $3 = baseurl. Callers pass literals.
+  local id="$1" name="$2" baseurl="$3"
+  if [[ ! -f /etc/yum.repos.d/$id.repo ]]; then
+    echo "Enabling $name repository..."
+    printf '[%s]\nname=%s\nbaseurl=%s\nenabled=1\ngpgcheck=1\ngpgkey=https://dl.google.com/linux/linux_signing_key.pub\n' \
+      "$id" "$name" "$baseurl" | sudo tee "/etc/yum.repos.d/$id.repo" >/dev/null
+  fi
+}
+
+case $1 in
+chromium)
+  echo "Installing Chromium..."
+  omarchy-pkg-add chromium
+
+  setup_chromium_policy_directory /etc/chromium/policies/managed
+  copy_chromium_flags ~/.config/chromium-flags.conf
+  omarchy-theme-set-browser
+  announce_browser_installed "Chromium"
+  ;;
+chrome)
+  echo "Installing Chrome..."
+  enable_vendor_repo google-chrome "Google Chrome" "https://dl.google.com/linux/chrome/rpm/stable/x86_64"
+  # The vendor repo signs with Google's key; import it before installing.
+  sudo rpm --import https://dl.google.com/linux/linux_signing_key.pub
+  omarchy-pkg-add google-chrome-stable || exit 1
+
+  setup_chromium_policy_directory /etc/opt/chrome/policies/managed
+  copy_chromium_flags ~/.config/chrome-flags.conf
+  omarchy-theme-set-browser
+  announce_browser_installed "Chrome"
+  ;;
+edge)
+  echo "Installing Edge..."
+  sudo rpm --import https://packages.microsoft.com/keys/microsoft.asc
+  if [[ ! -f /etc/yum.repos.d/microsoft-edge.repo ]]; then
+    echo "Enabling Microsoft Edge repository..."
+    sudo tee /etc/yum.repos.d/microsoft-edge.repo >/dev/null <<'EOF'
+[microsoft-edge]
+name=Microsoft Edge
+baseurl=https://packages.microsoft.com/yumrepos/edge
+enabled=1
+gpgcheck=1
+gpgkey=https://packages.microsoft.com/keys/microsoft.asc
+EOF
+  fi
+  omarchy-pkg-add microsoft-edge-stable || exit 1
+
+  setup_chromium_policy_directory /etc/opt/edge/policies/managed
+  copy_chromium_flags ~/.config/microsoft-edge-stable-flags.conf
+  omarchy-theme-set-browser
+  announce_browser_installed "Edge"
+  ;;
+brave)
+  echo "Installing Brave..."
+  omarchy-pkg-add brave-browser || exit 1
+
+  setup_chromium_policy_directory /etc/brave/policies/managed
+  copy_chromium_flags ~/.config/brave-flags.conf
+  omarchy-theme-set-browser
+  announce_browser_installed "Brave"
+  ;;
+brave-origin)
+  echo "Brave Origin is an Omarchy AUR rebuild with no Fedora RPM; install Brave instead." >&2
+  exit 1
+  ;;
+firefox)
+  echo "Installing Firefox..."
+  omarchy-pkg-add firefox || exit 1
+
+  browser_policy_setup_firefox_distribution /usr/lib/firefox/distribution
+  setup_firefox_wayland
+  announce_browser_installed "Firefox"
+  ;;
+zen)
+  echo "Installing Zen..."
+  omarchy-pkg-aur-add app.zen_browser.zen || exit 1
+
+  setup_firefox_wayland
+  announce_browser_installed "Zen"
+  ;;
+*)
+  echo "Usage: omarchy-install-browser <chromium|chrome|brave|brave-origin|edge|firefox|zen>"
+  exit 1
+  ;;
+esac

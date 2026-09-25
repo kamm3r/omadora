@@ -1,0 +1,40 @@
+#!/bin/bash
+
+# omarchy:summary=Install the named Flathub apps for the current user if they're missing. Returns false if it couldn't be done.
+# omarchy:args=<flatpak-id...>
+# omarchy:examples=omarchy pkg aur add md.obsidian.Obsidian
+
+# Fedora has no AUR; third-party GUI apps come from Flathub. Installs are
+# strictly per-user (`--user`): system flatpaks would need root, leak across
+# users, and fight the snapshot/rollback story. Kept under the aur name so the
+# menu entry and existing callers keep working.
+
+FLATHUB_URL="https://dl.flathub.org/repo/flathub.flatpakrepo"
+
+ensure_flathub_user_remote() {
+  if ! flatpak remotes --user --columns=name 2>/dev/null | grep -qx flathub; then
+    flatpak remote-add --user --if-not-exists flathub "$FLATHUB_URL" || return 1
+  fi
+}
+
+missing=()
+for app in "$@"; do
+  if ! flatpak info --user -- "$app" &>/dev/null; then
+    missing+=("$app")
+  fi
+done
+
+if (( ${#missing[@]} > 0 )); then
+  ensure_flathub_user_remote || exit 1
+  flatpak install -y --user flathub -- "${missing[@]}" || exit 1
+fi
+
+for app in "$@"; do
+  # Secondary check to handle states where flatpak doesn't actually register an error
+  if ! flatpak info --user -- "$app" &>/dev/null; then
+    echo -e "\033[31mError: Flatpak '$app' did not install\033[0m" >&2
+    exit 1
+  fi
+done
+
+exit 0

@@ -1,0 +1,23 @@
+#!/bin/bash
+
+# omarchy:summary=Install the NordVPN service with optional GUI.
+# omarchy:requires-sudo=true
+
+echo "Installing NordVPN..."
+# Official NordVPN release RPM registers their yum repo, then the client
+# installs like any Fedora package.
+if omarchy-pkg-missing nordvpn-release; then
+  sudo dnf install -y https://repo.nordvpn.com/yum/nordvpn/centos/x86_64/Packages/n/nordvpn-release-1.0.0-1.noarch.rpm
+fi
+omarchy-pkg-add nordvpn
+
+echo "Enabling NordVPN daemon..."
+sudo systemctl enable --now nordvpnd
+
+echo "Adding user to nordvpn group..."
+sudo usermod -aG nordvpn "$USER"
+
+echo -e "\nNordVPN installed! After reboot, run 'nordvpn login' to authenticate."
+
+echo
+gum confirm "Reboot now to make NordVPN usable?" && omarchy-system-reboot

@@ -1,0 +1,36 @@
+#!/bin/bash
+
+# omarchy:summary=Install the ONCE service, enable its background service, and launch the TUI.
+# omarchy:requires-sudo=true
+
+echo "Installing ONCE..."
+# ONCE (37signals' self-hosted apps CLI, github.com/basecamp/once) ships no
+# Fedora RPM; install the upstream release binary to /usr/local/bin.
+# Bump ONCE_VERSION to track new releases.
+ONCE_VERSION="${ONCE_VERSION:-0.3.2}"
+ONCE_ARCH="$(uname -m)"
+if [[ $ONCE_ARCH == "x86_64" ]]; then
+  ONCE_RELEASE_ARCH="amd64"
+elif [[ $ONCE_ARCH == "aarch64" ]]; then
+  ONCE_RELEASE_ARCH="arm64"
+else
+  echo "Unsupported architecture for ONCE: $ONCE_ARCH" >&2
+  exit 1
+fi
+
+if omarchy-cmd-missing once; then
+  sudo curl -sfL -o /usr/local/bin/once \
+    "https://github.com/basecamp/once/releases/download/v${ONCE_VERSION}/once-linux-${ONCE_RELEASE_ARCH}"
+  sudo chmod 0755 /usr/local/bin/once
+fi
+
+echo "Installing ONCE background service..."
+sudo install -Dm644 "$OMARCHY_PATH/default/systemd/system/once-background.service" \
+  /etc/systemd/system/once-background.service
+sudo systemctl daemon-reload
+
+echo "Enabling ONCE background service..."
+sudo systemctl enable --now once-background.service
+
+echo -e "\nLaunching ONCE..."
+sudo once

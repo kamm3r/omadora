@@ -1,0 +1,21 @@
+#!/bin/bash
+
+# omarchy:summary=Ensure the Fedora and third-party RPM signing keys are installed
+# omarchy:requires-sudo=true
+
+# Fedora rotates its distribution keys with releases; reinstalling pulls the
+# current ones, and rpm verifies they landed.
+#
+# omarchy-update runs this under set -e as a trusted pre-step, so a failed
+# install has to stop this script here, not surface later as signature errors
+# in the middle of the main transaction.
+set -euo pipefail
+
+echo -e "\e[32m\nUpdate RPM signing keys\e[0m"
+sudo dnf install -y fedora-gpg-keys >/dev/null
+
+# Say "correct" only once the keys verifiably are: before the failure checks
+# above, a failed install still ended here with exit 0.
+rpm -q fedora-gpg-keys >/dev/null
+rpm -qa gpg-pubkey --queryformat '%{NAME} %{VERSION}\n' 2>/dev/null | grep -qi gpg-pubkey
+echo "Keys are correct"

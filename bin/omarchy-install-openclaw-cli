@@ -1,0 +1,32 @@
+#!/bin/bash
+
+# omarchy:summary=Ensure the OpenClaw CLI is installed for the default agent
+# omarchy:args=[--check|--now]
+# omarchy:requires-sudo=true
+
+# OpenClaw is not a mise tool: the openclaw RPM is the one OpenClaw
+# installation on the machine — the CLI, the gateway, and the Install > AI web
+# app all share it, and the fast ring keeps it current. The default-agent flow
+# talks to that package through the same --check/--now contract mise-backed
+# agents get from mise itself.
+#
+# No openclaw RPM exists yet, so --now falls back to the upstream npm install
+# until one ships (see FEDORA.md).
+
+set -euo pipefail
+
+case "${1:---now}" in
+--check)
+  omarchy-pkg-present openclaw
+  ;;
+--now)
+  if ! omarchy-pkg-present openclaw; then
+    echo "Installing OpenClaw..."
+    omarchy-pkg-add openclaw 2>/dev/null || npm install -g openclaw
+  fi
+  ;;
+*)
+  echo "Usage: omarchy-install-openclaw-cli [--check|--now]" >&2
+  exit 1
+  ;;
+esac

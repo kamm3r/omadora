@@ -1,0 +1,16 @@
+#!/bin/bash
+
+# omarchy:summary=Install Bitwarden desktop and CLI.
+# omarchy:requires-sudo=true
+
+set -e
+
+echo "Installing Bitwarden..."
+# Desktop app has no Fedora RPM; per-user Flathub install. CLI is in Terra.
+omarchy-pkg-add bitwarden-cli
+omarchy-pkg-aur-add com.bitwarden.desktop
+
+setsid uwsm-app -- gtk-launch com.bitwarden.desktop >/dev/null 2>&1 &
+
+echo ""
+echo "Bitwarden has been installed."

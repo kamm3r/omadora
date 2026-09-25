@@ -1,0 +1,17 @@
+#!/bin/bash
+
+# This hook is called by `omarchy refresh pacman` BEFORE the dnf metadata
+# refresh and upgrade run. Use it to layer customizations onto the repo
+# configuration so they're respected by the upgrade — common cases are
+# enabling an extra COPR repository or dropping a custom .repo file into
+# /etc/yum.repos.d.
+#
+# (On Arch this hook rewrote /etc/pacman.conf; on Fedora the system repos live
+# in /etc/yum.repos.d and are managed by the distro, so this only adds.)
+#
+# The hook runs as the invoking user with a warm sudo cache.
+#
+# To put it into use, remove .sample from this file name.
+
+# Example: enable an extra COPR repository.
+# sudo dnf copr enable -y owner/project

@@ -1,0 +1,66 @@
+# Packages installed outside of the base list: hardware-dependent, optional,
+# or pulled in by other install steps. Installed with dnf on Fedora.
+# Utilized by ISO builder to ensure package availability in the ISO.
+# Lines starting with # are notes and are ignored by installers.
+
+autoconf-archive
+asusctl
+btrfs-progs
+dkms
+egl-wayland
+pipewire-gstreamer
+gtk4-layer-shell
+pulseaudio-libs
+intel-lpmd
+intel-media-driver
+libva-nvidia-driver
+# Limine bootloader comes from terra; the entry-tool/snapper-sync helpers
+# have no RPM and are built from source by install/bootloader/limine-fedora.sh
+limine
+linux-firmware
+kernel-headers
+kernel-devel
+pipewire
+pipewire-alsa
+pipewire-jack-audio-connection-kit
+pipewire-pulseaudio
+qt6-qtwayland
+snapper
+alsa-sof-firmware
+thermald
+zram-generator
+
+# Intel encoding processing
+libvpl
+intel-vpl-gpu-rt
+
+# Vulkan drivers (auto-detected by hardware)
+mesa-vulkan-drivers
+
+# Speaker tunings (LV2 limiter every tuning ends in)
+lsp-plugins-lv2
+
+# Dropped from the Arch list (reason in parens):
+# base, base-devel (use Fedora @core / @development-tools groups)
+# broadcom-wl-dkms (Fedora uses akmods: akmod-wl/broadcom-wl from RPM Fusion)
+# intel-ipu7-camera (not packaged; check in-kernel support)
+# libva-intel-driver (legacy i965 only; RPM Fusion; modern HW uses intel-media-driver)
+# limine-mkinitcpio-hook (no mkinitcpio on Fedora; dracut shim in install/bootloader/)
+# limine-snapper-sync (built from source; see install/bootloader/limine-fedora.sh)
+# linux, linux-ptl (Arch kernels; Fedora uses the kernel package)
+# linux-headers (split into kernel-headers + kernel-devel above)
+# linux-ptl-headers (Panther Lake test kernel, Arch-specific)
+# nvidia-*-dkms, nvidia-*-utils, lib32-nvidia-* (use akmod-nvidia +
+#   xorg-x11-drv-nvidia-libs from RPM Fusion; no lib32 namespace, use .i686)
+# vulkan-intel, vulkan-radeon (merged into mesa-vulkan-drivers)
+# vulkan-asahi (aarch64/Asahi only; Fedora Asahi remix covers it)
+# linux-firmware-marvell (bundled inside Fedora's linux-firmware)
+# dell-xps-touchpad-haptics, dell-xps13-sidecar-amps (Omarchy/AUR-specific)
+# apple-bcm-firmware, apple-t2-audio-config, linux-t2, linux-t2-headers,
+#   t2fanrd (T2 MacBook; community COPR or omit)
+# macbook12-spi-driver-dkms (AUR-only)
+# tuxedo-drivers-nocompatcheck-dkms (vendor repo, not Fedora)
+# yt6801-dkms (very new HW; check in-kernel support first)
+# qmk-hid (Framework 16 tool; fetch upstream binary)
+# yay-debug (Arch-only)
+# webp-pixbuf-loader (retired in Fedora)

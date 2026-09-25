@@ -1,0 +1,16 @@
+#!/bin/bash
+
+# omarchy:summary=Install Spotify.
+# omarchy:requires-sudo=true
+
+set -e
+
+echo "Installing Spotify..."
+# No Fedora RPM; per-user Flathub install.
+omarchy-pkg-aur-add com.spotify.Client
+
+echo "Opening Spotify..."
+setsid uwsm-app -- flatpak run --user com.spotify.Client >/dev/null 2>&1 &
+
+echo ""
+echo "Spotify has been installed."

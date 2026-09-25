@@ -1,0 +1,10 @@
+#!/bin/bash
+
+# omarchy:summary=Returns true if Flathub is configured for the current user and reachable.
+
+# Fedora has no AUR; this probes Flathub (the user-scoped third-party source)
+# so callers that gate third-party updates keep working.
+flatpak remotes --user --columns=name 2>/dev/null | grep -qx flathub || exit 1
+
+curl -sf --connect-timeout 30 --retry 3 --retry-delay 3 -A "omarchy-update" \
+  "https://dl.flathub.org/repo/summary.idx" >/dev/null

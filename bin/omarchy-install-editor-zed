@@ -1,0 +1,17 @@
+#!/bin/bash
+
+# omarchy:summary=Install Zed Editor and configure it with the current Omarchy theme
+
+echo "Installing Zed Editor..."
+omarchy-pkg-add zed
+
+# omazed (Omarchy zed theme helper) has no Fedora RPM yet; theme the editor
+# with it once one ships.
+if dnf list --quiet available omazed 2>/dev/null | awk 'NR>1 {found=1} END {exit !found}'; then
+  omarchy-pkg-add omazed
+
+  # Apply Omarchy theme to Zed
+  omazed setup
+fi
+
+setsid uwsm-app -- gtk-launch dev.zed.Zed >/dev/null 2>&1 &

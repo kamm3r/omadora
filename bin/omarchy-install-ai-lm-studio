@@ -1,0 +1,12 @@
+#!/bin/bash
+
+# omarchy:summary=Install LM Studio and its models directory.
+# omarchy:requires-sudo=true
+
+echo "Installing LM Studio..."
+omarchy-pkg-aur-add ai.lmstudio.lm-studio || exit 1
+
+mkdir -p "$HOME/.cache/lm-studio" "$HOME/.config/LM-Studio"
+
+echo ""
+echo "LM Studio has been installed."

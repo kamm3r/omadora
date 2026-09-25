@@ -1,0 +1,11 @@
+#!/bin/bash
+
+# omarchy:summary=Install Emacs with Omarchy theme and font integration
+
+echo "Installing Emacs..."
+# omarchy-emacs (the themed AUR rebuild) has no Fedora RPM yet; stock emacs
+# plus the shared theme step below covers it until one ships.
+omarchy-pkg-add emacs && omarchy-install-emacs
+
+# emacsclient opens a frame on the running daemon, not a second Emacs
+setsid uwsm-app -- gtk-launch emacsclient >/dev/null 2>&1 &

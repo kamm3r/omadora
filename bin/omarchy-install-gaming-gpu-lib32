@@ -1,0 +1,39 @@
+#!/bin/bash
+
+# omarchy:summary=Install 32-bit graphics drivers (Vulkan + NVIDIA) for any detected GPUs.
+# omarchy:group=install
+# omarchy:name=gaming gpu-lib32
+# omarchy:requires-sudo=true
+
+set -e
+
+echo "Installing 32-bit graphics drivers..."
+
+# Fedora has no lib32-* namespace; 32-bit compatibility packages use the
+# .i686 suffix instead.
+PACKAGES=()
+
+for vendor in Intel AMD; do
+  if lspci | grep -iE "(VGA|Display).*$vendor" >/dev/null; then
+    PACKAGES+=(mesa-vulkan-drivers.i686)
+    break
+  fi
+done
+
+if omarchy-hw-nvidia-gsp; then
+  PACKAGES+=(xorg-x11-drv-nvidia-libs.i686)
+elif omarchy-hw-nvidia-without-gsp; then
+  PACKAGES+=(xorg-x11-drv-nvidia-470xx-libs.i686)
+fi
+
+# Deduplicate: one Intel+AMD box shares mesa-vulkan-drivers.i686.
+unique=()
+declare -A seen=()
+for pkg in "${PACKAGES[@]}"; do
+  if [[ -z ${seen[$pkg]:-} ]]; then
+    unique+=("$pkg")
+    seen[$pkg]=1
+  fi
+done
+
+(( ${#unique[@]} > 0 )) && omarchy-pkg-add "${unique[@]}"

@@ -1,0 +1,12 @@
+#!/bin/bash
+
+# omarchy:summary=Clean the dnf package cache
+# omarchy:requires-sudo=true
+
+set -e
+
+# The cache is the only offline downgrade path, so only drop downloaded
+# packages, never installed ones. Run before the packages update.
+echo -e "\e[32m\nPrune package cache\e[0m"
+sudo dnf clean packages || echo -e "\e[33mCould not prune the package cache.\e[0m" >&2
+echo

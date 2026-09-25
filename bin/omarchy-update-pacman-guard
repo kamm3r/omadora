@@ -1,0 +1,54 @@
+#!/bin/bash
+
+# omarchy:summary=Prevent direct dnf system upgrades from bypassing omarchy update.
+# omarchy:hidden=true
+
+set -euo pipefail
+
+# Kept under the historical pacman name so existing hooks keep working; the
+# check itself watches dnf. Prefer the DNF-specific env var, accept the legacy
+# one for compatibility.
+if [[ ${OMARCHY_UPDATE_DNF:-} == "1" || ${OMARCHY_UPDATE_PACMAN:-} == "1" || ${OMARCHY_ALLOW_DIRECT_DNF:-} == "1" || ${OMARCHY_ALLOW_DIRECT_PACMAN:-} == "1" ]]; then
+  exit 0
+fi
+
+dnf_args=()
+if [[ -n ${OMARCHY_DNF_CMDLINE:-} ]]; then
+  read -r -a dnf_args <<<"$OMARCHY_DNF_CMDLINE"
+elif [[ -n ${OMARCHY_PACMAN_CMDLINE:-} ]]; then
+  read -r -a dnf_args <<<"$OMARCHY_PACMAN_CMDLINE"
+elif [[ -r /proc/$PPID/cmdline ]]; then
+  mapfile -d '' -t dnf_args <"/proc/$PPID/cmdline" || true
+fi
+
+is_system_upgrade=0
+
+for arg in "${dnf_args[@]}"; do
+  case "$arg" in
+    upgrade | distro-sync | update)
+      is_system_upgrade=1
+      ;;
+  esac
+done
+
+(( is_system_upgrade )) || exit 0
+
+cat >&2 <<'MESSAGE'
+
+Woah partner...
+
+This looks like a direct dnf system upgrade. Omarchy updates should normally
+run through:
+
+  omarchy update
+
+That path handles the update transcript, snapshot, keyrings, package upgrade,
+migrations, post-update hooks, shell update state, and restart checks together.
+
+If you really meant to bypass Omarchy for this transaction, rerun dnf with:
+
+  sudo env OMARCHY_ALLOW_DIRECT_DNF=1 dnf upgrade
+
+MESSAGE
+
+exit 1

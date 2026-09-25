@@ -1,0 +1,30 @@
+#!/bin/bash
+
+# omarchy:summary=Show a fuzzy-finder TUI for picking new Flathub apps to install for the current user.
+
+# Fedora has no AUR; this picks from Flathub instead. Installs are strictly
+# per-user (`--user`): never system-wide.
+
+fzf_args=(
+  --multi
+  --preview 'flatpak remote-info --user flathub {1}'
+  --preview-label='alt-p: toggle description, alt-j/k: scroll, tab: multi-select'
+  --preview-label-pos='bottom'
+  --preview-window 'down:65%:wrap'
+  --bind 'alt-p:toggle-preview'
+  --bind 'alt-d:preview-half-page-down,alt-u:preview-half-page-up'
+  --bind 'alt-k:preview-up,alt-j:preview-down'
+  --color 'pointer:green,marker:green'
+)
+
+if ! flatpak remotes --user --columns=name 2>/dev/null | grep -qx flathub; then
+  flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo || exit 1
+fi
+
+app_ids=$(flatpak remote-ls --user flathub --app --columns=application 2>/dev/null | fzf "${fzf_args[@]}")
+
+if [[ -n $app_ids ]]; then
+  # shellcheck disable=SC2086
+  echo "$app_ids" | tr '\n' ' ' | xargs flatpak install -y --user flathub
+  omarchy-show-done
+fi

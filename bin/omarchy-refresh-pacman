@@ -1,0 +1,24 @@
+#!/bin/bash
+
+# omarchy:summary=Refresh dnf repository metadata, then update all packages.
+# omarchy:requires-sudo=true
+
+# Historical name: this used to rewrite /etc/pacman.conf from Omarchy's
+# dedicated mirrors. On Fedora the system repos live in /etc/yum.repos.d and
+# are managed by the distro and install scripts, so this only refreshes
+# metadata and upgrades. The channel argument is accepted for compatibility.
+channel="${1:-stable}"
+
+if [[ $channel != "stable" && $channel != "rc" && $channel != "edge" ]]; then
+  echo "Error: Invalid channel '$channel'. Must be one of: stable, rc, edge"
+  exit 1
+fi
+
+echo "Setting channel to $channel"
+echo
+
+# Allow user customization before the upgrade runs
+omarchy-hook pre-refresh-pacman
+
+# Refresh all repo metadata and then update
+omarchy-update-dnf dnf upgrade -y --refresh

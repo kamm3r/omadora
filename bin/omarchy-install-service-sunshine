@@ -1,0 +1,80 @@
+#!/bin/bash
+
+# omarchy:summary=Install Sunshine and open Moonlight streaming ports for LAN and Tailscale.
+# omarchy:requires-sudo=true
+
+set -e
+
+TCP_PORTS=(47984 47989 48010)
+UDP_PORTS=(5353 47998 47999 48000 48002 48010)
+PRIVATE_CIDRS=(10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 100.64.0.0/10)
+SUNSHINE_ADMIN_APP="Sunshine Admin"
+SUNSHINE_ADMIN_URL="https://localhost:47990"
+SUNSHINE_ADMIN_EXEC="omarchy-launch-webapp $SUNSHINE_ADMIN_URL --ignore-certificate-errors"
+SUNSHINE_ICON_SOURCE="/usr/share/sunshine/web/images/logo-sunshine-45.png"
+HYPR_AUTOSTART_FILE="$HOME/.config/hypr/autostart.lua"
+HYPR_AUTOSTART_ENTRY='o.launch_on_start("sunshine")'
+
+# 100.64.0.0/10 covers the Tailscale CGNAT range, so Tailscale peers are
+# included without touching the shared tailscale0 interface zone.
+open_firewalld_port_for_private_lans() {
+  local proto="$1"
+  local port="$2"
+  local cidr
+
+  for cidr in "${PRIVATE_CIDRS[@]}"; do
+    sudo firewall-cmd --permanent \
+      --add-rich-rule="rule family=ipv4 source address=$cidr port port=$port protocol=$proto accept" >/dev/null
+  done
+}
+
+open_firewalld_ports() {
+  local port
+
+  if omarchy-cmd-missing firewall-cmd; then
+    echo "firewalld is not installed; skipping Sunshine firewall rules."
+    return
+  fi
+
+  for port in "${TCP_PORTS[@]}"; do
+    open_firewalld_port_for_private_lans tcp "$port"
+  done
+
+  for port in "${UDP_PORTS[@]}"; do
+    open_firewalld_port_for_private_lans udp "$port"
+  done
+
+  sudo firewall-cmd --reload
+}
+
+install_admin_webapp() {
+  omarchy-webapp-install "$SUNSHINE_ADMIN_APP" "$SUNSHINE_ADMIN_URL" "$SUNSHINE_ICON_SOURCE" "$SUNSHINE_ADMIN_EXEC"
+}
+
+enable_hyprland_autostart() {
+  mkdir -p "$(dirname "$HYPR_AUTOSTART_FILE")"
+  touch "$HYPR_AUTOSTART_FILE"
+
+  if ! grep -Fxq "$HYPR_AUTOSTART_ENTRY" "$HYPR_AUTOSTART_FILE"; then
+    printf '\n%s\n' "$HYPR_AUTOSTART_ENTRY" >>"$HYPR_AUTOSTART_FILE"
+  fi
+}
+
+echo "Installing Sunshine..."
+# No sunshine binary RPM in the default repos (RPM Fusion carries it); fall
+# back to a per-user Flathub install so the streaming setup below still applies.
+omarchy-pkg-add sunshine 2>/dev/null || flatpak install -y --user flathub dev.lizardbyte.app.Sunshine
+systemctl --user enable --now sunshine 2>/dev/null || true
+
+echo "Opening Sunshine firewall ports..."
+open_firewalld_ports
+
+echo "Installing Sunshine admin web app..."
+install_admin_webapp
+$SUNSHINE_ADMIN_EXEC >/dev/null 2>&1 &
+
+echo "Enabling Sunshine autostart..."
+enable_hyprland_autostart
+
+echo ""
+echo "Sunshine has been installed and its Moonlight streaming ports are open for private LANs and Tailscale."
