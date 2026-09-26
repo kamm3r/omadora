@@ -21,8 +21,10 @@ fi
 # handler has already said why, so no heading here either.
 if [[ ${OMARCHY_UPDATE_CONFLICT:-} == 1 && ${OMARCHY_UPDATE_INTERACTIVE:-} == 1 ]]; then
   # Raw dnf: by the time a human is asked, nobara-sync has already rolled its
-  # own transaction back, so this is just the manual retry.
-  exec omarchy-update-dnf dnf upgrade -y
+  # own transaction back, so this is just the manual retry. dnf only resolves a
+  # conflict by erasing a package, and only asks when allowed to: no -y, so the
+  # person sees what would be removed and confirms or declines it.
+  exec omarchy-update-dnf dnf upgrade --allowerasing
 fi
 
 echo -e "\e[32m\nUpdate system packages\e[0m"

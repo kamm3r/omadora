@@ -33,20 +33,20 @@ cat >"$stub_bin/omarchy-cmd-present" <<'STUB'
 command -v "$1" >/dev/null
 STUB
 
-# Fails the first -Syu with the report under test, then succeeds. Every call
-# records its arguments and which of its streams reached a terminal: pacman puts
-# its questions on stderr once it is not running --noconfirm, so a retry meant
-# for a person has to keep that stream.
-cat >"$stub_bin/pacman" <<'STUB'
+# Fails the first upgrade with the report under test, then succeeds. Every call
+# records its arguments and which of its streams reached a terminal: dnf puts
+# its questions on stderr once it is not running -y, so a retry meant for a
+# person has to keep that stream.
+cat >"$stub_bin/dnf" <<'STUB'
 #!/bin/bash
-attempt=$(($(cat "$PACMAN_ATTEMPTS") + 1))
-echo "$attempt" >"$PACMAN_ATTEMPTS"
+attempt=$(($(cat "$DNF_ATTEMPTS") + 1))
+echo "$attempt" >"$DNF_ATTEMPTS"
 {
   printf 'args %s\n' "$*"
   for fd in 0 1 2; do
     if [[ -t $fd ]]; then printf 'tty%s yes\n' "$fd"; else printf 'tty%s no\n' "$fd"; fi
   done
-} >>"$PACMAN_CALLS"
+} >>"$DNF_CALLS"
 
 if ((attempt == 1)); then
   cat "$CONFLICT_REPORT" >&2
@@ -55,26 +55,29 @@ fi
 echo "upgrade complete"
 STUB
 
-chmod +x "$stub_bin/sudo" "$stub_bin/systemd-run" "$stub_bin/omarchy-cmd-present" "$stub_bin/pacman"
+chmod +x "$stub_bin/sudo" "$stub_bin/systemd-run" "$stub_bin/omarchy-cmd-present" "$stub_bin/dnf"
 
-# Everything a blocked qemu-common upgrade leaves on stderr, and no more. The
-# ":: ... Remove qemu-block-gluster? [y/N]" pacman asked is deliberately absent:
-# under --noconfirm it goes to stdout, so nothing downstream of the report can
-# be built on having read it.
+# Everything a blocked qemu-common upgrade leaves on stderr under dnf5, and no
+# more: under -y dnf declines to erase anything and only suggests
+# --allowerasing, so nothing downstream of the report can be built on a
+# question it never asked.
 write_conflict_report() {
   echo 0 >"$test_tmp/attempts"
   : >"$test_tmp/calls"
   {
-    printf '\e[1;31merror: \e[0munresolvable package conflicts detected\n'
-    printf '\e[1;31merror: \e[0mfailed to prepare transaction (conflicting dependencies)\n'
+    printf 'Failed to resolve the transaction:\n'
+    printf 'Problem: cannot install both qemu-common-9.2.0-1.fc44.x86_64 and qemu-common-9.1.0-2.fc44.x86_64\n'
+    printf '  - package qemu-block-gluster-9.1.0-2.fc44.x86_64 requires qemu-common = 9.1.0-2.fc44, but none of the providers can be installed\n'
+    printf 'You can try to add to command line:\n'
+    printf '  --allowerasing to allow erasing of installed packages to resolve problems\n'
   } >"$test_tmp/report"
 }
 
 update_env() {
   printf '%s\n' \
     "OMARCHY_REPLACED_DIR=$test_tmp/replaced" \
-    "PACMAN_ATTEMPTS=$test_tmp/attempts" \
-    "PACMAN_CALLS=$test_tmp/calls" \
+    "DNF_ATTEMPTS=$test_tmp/attempts" \
+    "DNF_CALLS=$test_tmp/calls" \
     "CONFLICT_REPORT=$test_tmp/report" \
     "OWNED_PATHS=" \
     "OMARCHY_UPDATE_UNATTENDED=${OMARCHY_UPDATE_UNATTENDED:-}" \
@@ -108,20 +111,20 @@ write_conflict_report
 run_on_terminal || fail "a package conflict is not resolved on a terminal"
 (($(cat "$test_tmp/attempts") == 2)) ||
   fail "a package conflict does not get an interactive retry"
-[[ $(call_line 2 args) == *"-Syu"* ]] ||
+[[ " $(call_line 2 args) " == *" upgrade "* ]] ||
   fail "the interactive retry does not upgrade"
-[[ $(call_line 2 args) != *"--noconfirm"* ]] ||
-  fail "the interactive retry still answers pacman's questions itself"
-[[ $(call_line 2 args) != *"--ask"* ]] ||
-  fail "the interactive retry answers pacman's questions from a bitmask instead"
+[[ " $(call_line 2 args) " != *" -y "* && " $(call_line 2 args) " != *" --assumeyes "* ]] ||
+  fail "the interactive retry still answers dnf's questions itself"
+[[ " $(call_line 2 args) " == *" --allowerasing "* ]] ||
+  fail "the interactive retry cannot offer the erasure that resolves the conflict"
 pass "a package conflict is put back to the person running the update"
 
 [[ $(call_line 2 tty0) == "yes" && $(call_line 2 tty2) == "yes" ]] ||
-  fail "the interactive retry cannot be answered: pacman has no terminal left"
-pass "the interactive retry keeps the streams pacman asks and listens on"
+  fail "the interactive retry cannot be answered: dnf has no terminal left"
+pass "the interactive retry keeps the streams dnf asks and listens on"
 
-# Which streams have to be a terminal follows from where pacman asks: stderr
-# carries the question once --noconfirm is gone, stdin carries the answer, and
+# Which streams have to be a terminal follows from where dnf asks: stderr
+# carries the question once -y is gone, stdin carries the answer, and
 # stdout carries progress bars nobody has to see to answer.
 write_conflict_report
 run_on_terminal '>/dev/null' ||
@@ -135,7 +138,7 @@ if run_on_terminal '2>/dev/null'; then
   fail "a conflict is asked about on a stream nobody is reading"
 fi
 (($(cat "$test_tmp/attempts") == 1)) ||
-  fail "pacman is left prompting where the question cannot be seen"
+  fail "dnf is left prompting where the question cannot be seen"
 pass "a session that cannot show the question is not asked one"
 
 [[ $(call_line 1 tty2) == "no" ]] ||
@@ -166,6 +169,6 @@ write_conflict_report
 if OMARCHY_UPDATE_INTERACTIVE=1 run_headless; then
   fail "a caller reaches the interactive upgrade on its own"
 fi
-[[ $(call_line 1 args) == *"--noconfirm"* ]] ||
+[[ " $(call_line 1 args) " == *" -y "* ]] ||
   fail "a caller can ask for an interactive upgrade directly"
 pass "only the conflict handler can hand the upgrade to a person"
