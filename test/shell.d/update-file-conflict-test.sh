@@ -23,14 +23,8 @@ while [[ $1 == -* ]]; do shift; done
 exec "$@"
 STUB
 
-# Pin the omadora-sync branch on any host: no Nobara fixups (nobara-sync exists
-# on Nobara hosts running this suite), and the libdnf5 bindings reported
+# Pin the omadora-sync branch on any host: the libdnf5 bindings are reported
 # installed whether or not this host has them.
-cat >"$stub_bin/omarchy-cmd-present" <<'STUB'
-#!/bin/bash
-[[ $1 == nobara-sync ]] && exit 1
-command -v "$1" >/dev/null
-STUB
 cat >"$stub_bin/omarchy-pkg-present" <<'STUB'
 #!/bin/bash
 [[ $1 == python3-libdnf5 ]]
@@ -78,7 +72,7 @@ echo "Unexpected dnf call: $*" >&2
 exit 99
 STUB
 
-chmod +x "$stub_bin/sudo" "$stub_bin/systemd-run" "$stub_bin/omarchy-cmd-present" "$stub_bin/omarchy-pkg-present" "$fake_root/bin/omadora-sync" "$stub_bin/dnf" "$stub_bin/rpm"
+chmod +x "$stub_bin/sudo" "$stub_bin/systemd-run" "$stub_bin/omarchy-pkg-present" "$fake_root/bin/omadora-sync" "$stub_bin/dnf" "$stub_bin/rpm"
 
 replaced="$test_tmp/replaced"
 

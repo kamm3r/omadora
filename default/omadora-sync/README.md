@@ -17,13 +17,13 @@ The entrypoint is `bin/omadora-sync`; the package lives in `omadora_sync/` and t
 
 ## Changes from nobara-sync (2026)
 
-- Terminal only: the GTK window, the codec wizard, and every GTK, GObject, Flatpak, dnf4, `requests` and `psutil` import are gone. The only runtime dependency beyond Python is `python3-libdnf5`.
-- No Nobara quirk fixups, notices download, yumex tray refresh, or `/etc/nobara` markers. On Nobara hosts `omarchy-update-system-pkgs` still runs `nobara-sync install-fixups` before `omadora-sync`, so those repairs stay Nobara's.
+- Command line only, with no GUI parts: the GTK window, the codec wizard, and every GTK, GObject, Flatpak, dnf4, `requests` and `psutil` import are gone, and it never touches a display, a polkit agent, or X11 access control. The only runtime dependency beyond Python is `python3-libdnf5`.
+- No Nobara quirk fixups, notices download, yumex tray refresh, or `/etc/nobara` markers. `omarchy update` never launches `nobara-sync` either, since it is a GTK application even in its CLI modes; on a Nobara host, run `nobara-sync install-fixups` yourself when Nobara announces a repair.
 - No Flatpak updates: Omadora updates the user's Flatpaks separately in `omarchy-update-aur-pkgs`.
 - Boot images go through `limine-mkinitcpio` when it exists, which regenerates every initramfs and re-registers each kernel with Limine; a bare `dracut --regenerate-all` would leave Limine booting stale copies. Plain `dracut` remains the fallback.
 - `repair` no longer deletes `/lib/modules` directories that lack a `/boot/vmlinuz-*`: with Limine the kernels live on the ESP, so that rule would delete every module directory. It also no longer re-executes itself.
 - Package groups describe Omadora's Hyprland desktop instead of Nobara's KDE and GNOME kickstarts.
 - A reboot after a kernel or driver update is recorded with `omarchy-state set reboot-required` for the invoking user, so `omarchy-update-restart` asks for it, instead of being announced here.
-- Elevation goes through `sudo` on `PATH` (the command-scoped wrapper inside `omarchy update`) rather than `sudo -E`, `pkexec`, or `xhost`. Listing updates and checking repositories run as the caller.
+- Elevation goes through `sudo` on `PATH` (the command-scoped wrapper inside `omarchy update`) only, never `sudo -E`, `pkexec`, or `xhost`. Listing updates and checking repositories run as the caller.
 - Progress goes to stdout and problems to stderr, so the update's conflict handler reads resolve problems and file conflicts without swallowing the progress.
 - The log is a root-owned file in `/var/log`, never a file root writes into the invoking user's home. Python runs isolated (`-I`) and writes no bytecode into the checkout.

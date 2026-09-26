@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # omarchy:summary=Run a dnf transaction for the Omarchy update flow, shielded from desktop session teardown.
-# omarchy:args=<dnf-args> | <omadora-sync-args> | <nobara-sync-args>
+# omarchy:args=<dnf-args> | <omadora-sync-args>
 # omarchy:hidden=true
 # omarchy:requires-sudo=true
 

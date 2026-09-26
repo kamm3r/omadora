@@ -32,16 +32,6 @@ if [[ ${OMARCHY_UPDATE_CONFLICT:-} == 1 && ${OMARCHY_UPDATE_INTERACTIVE:-} == 1 
   exec omarchy-update-dnf dnf upgrade --allowerasing
 fi
 
-# Nobara's own repairs (its repositories and keys, kernel conversions) stay
-# with Nobara: run its fixups first. nobara-sync stops to ask when SUDO_USER
-# holds a name, so hand it the numeric id it accepts. A failed fixup is
-# reported but does not block the update, as nobara-sync itself treats it.
-if [[ ${OMARCHY_UPDATE_RETRY:-} != 1 ]] && omarchy-cmd-present nobara-sync; then
-  echo -e "\e[32m\nApply Nobara fixups\e[0m"
-  omarchy-update-dnf env SUDO_USER="$(id -u)" nobara-sync install-fixups ||
-    echo -e "\e[33mNobara fixups failed; continuing with the system update.\e[0m" >&2
-fi
-
 echo -e "\e[32m\nUpdate system packages\e[0m"
 
 errors=$(mktemp)

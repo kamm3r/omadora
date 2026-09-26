@@ -147,7 +147,9 @@ def ensure_root() -> None:
 
 
 def invoking_user() -> pwd.struct_passwd | None:
-    uid = os.environ.get("SUDO_UID") or os.environ.get("PKEXEC_UID")
+    # sudo is the only way in: no pkexec or polkit agent, which want a
+    # graphical session.
+    uid = os.environ.get("SUDO_UID")
     if not uid or not uid.isdigit() or int(uid) == 0:
         return None
     try:

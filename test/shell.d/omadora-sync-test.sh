@@ -168,6 +168,13 @@ PY
   pass "progress goes to stdout and problems to stderr, uncolored off a terminal"
 fi
 
+# Terminal only: no GUI toolkit, graphical elevation, or display access.
+if grep -n -E '\b(gi|Gtk|Gdk|GLib|Flatpak|tkinter|Qt|pkexec|PKEXEC_UID|polkit|xhost|XAUTHORITY|DISPLAY|WAYLAND_DISPLAY|notify-send|zenity|kdialog)\b' \
+  "$ROOT/bin/omadora-sync" "$sync_root"/omadora_sync/*.py | grep -v 'no pkexec or polkit agent'; then
+  fail "omadora-sync has no GUI parts"
+fi
+pass "omadora-sync has no GUI toolkit, graphical elevation, or display access"
+
 # Nobara appears only in the attribution, never as a code path.
 if grep -rn -i 'nobara' "$ROOT/bin/omadora-sync" "$sync_root/omadora_sync" "$sync_root/package-groups.txt" |
   grep -v -e 'Derived from nobara-updater' -e 'nobara-project/nobara-core-packages' -e 'Nobara Project' -e "(Omadora's nobara-sync)" -e 'nobara-sync, no /lib/modules' -e 'derived from nobara-updater'; then
@@ -177,7 +184,7 @@ fi
 pass "omadora-sync keeps Nobara to its attribution and ships the GPL"
 
 # The update step: omadora-sync when its bindings are installed, plain dnf
-# before the migration adds them, and Nobara's fixups first on Nobara.
+# before the migration adds them, and never Nobara's GTK updater.
 stub_bin="$test_tmp/update-bin"
 mkdir -p "$stub_bin"
 cat >"$stub_bin/sudo" <<'STUB'
@@ -203,10 +210,10 @@ cat >"$stub_bin/omarchy-pkg-present" <<'STUB'
 #!/bin/bash
 [[ $1 == python3-libdnf5 && ${LIBDNF5_PRESENT:-1} == 1 ]]
 STUB
+# Every command, nobara-sync included, reports present: this is a Nobara host.
 cat >"$stub_bin/omarchy-cmd-present" <<'STUB'
 #!/bin/bash
-[[ $1 == nobara-sync ]] && { [[ ${NOBARA:-0} == 1 ]]; exit; }
-command -v "$1" >/dev/null
+exit 0
 STUB
 chmod +x "$stub_bin"/*
 
@@ -224,12 +231,9 @@ LIBDNF5_PRESENT=0 run_system_update || fail "an install without libdnf5 bindings
 [[ $(<"$test_tmp/calls") == "dnf upgrade -y SUDO_USER=" ]] || fail "an install without libdnf5 bindings upgrades with dnf" "$(<"$test_tmp/calls")"
 pass "an install that predates the migration upgrades once with plain dnf"
 
-NOBARA=1 run_system_update || fail "Nobara fixups run before omadora-sync"
-[[ $(<"$test_tmp/calls") == $'nobara-sync install-fixups SUDO_USER='"$EUID"$'\nomadora-sync cli SUDO_USER=' ]] ||
-  fail "Nobara fixups run before omadora-sync with a numeric SUDO_USER" "$(<"$test_tmp/calls")"
-NOBARA=1 FAIL_STEP=nobara-sync run_system_update || fail "a failed Nobara fixup stops the update" "$(<"$test_tmp/update.out")"
-grep -q 'Nobara fixups failed' "$test_tmp/update.out" || fail "a failed Nobara fixup is reported"
-grep -q '^omadora-sync cli' "$test_tmp/calls" || fail "a failed Nobara fixup still updates the system"
-NOBARA=1 OMARCHY_UPDATE_RETRY=1 run_system_update || fail "the conflict retry reruns the update"
-[[ $(<"$test_tmp/calls") == "omadora-sync cli SUDO_USER=" ]] || fail "the conflict retry repeats Nobara fixups" "$(<"$test_tmp/calls")"
-pass "Nobara fixups run first without prompting, never block the update, and are not repeated on retry"
+# nobara-sync is a GTK application even in its CLI modes (GTK and Flatpak
+# bindings, xhost on exit), so the update never launches it, Nobara or not.
+if grep -q '^nobara-sync' "$test_tmp/calls"; then
+  fail "the system update launches Nobara's GTK updater" "$(<"$test_tmp/calls")"
+fi
+pass "the system update never launches Nobara's GTK updater"

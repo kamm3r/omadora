@@ -25,14 +25,8 @@ while [[ $1 == -* ]]; do shift; done
 exec "$@"
 STUB
 
-# Pin the omadora-sync branch on any host: no Nobara fixups (nobara-sync exists
-# on Nobara hosts running this suite), and the libdnf5 bindings reported
+# Pin the omadora-sync branch on any host: the libdnf5 bindings are reported
 # installed whether or not this host has them.
-cat >"$stub_bin/omarchy-cmd-present" <<'STUB'
-#!/bin/bash
-[[ $1 == nobara-sync ]] && exit 1
-command -v "$1" >/dev/null
-STUB
 cat >"$stub_bin/omarchy-pkg-present" <<'STUB'
 #!/bin/bash
 [[ $1 == python3-libdnf5 ]]
@@ -67,7 +61,7 @@ fake_root="$test_tmp/omarchy"
 mkdir -p "$fake_root/bin"
 cp "$stub_bin/dnf" "$fake_root/bin/omadora-sync"
 
-chmod +x "$stub_bin/sudo" "$stub_bin/systemd-run" "$stub_bin/omarchy-cmd-present" "$stub_bin/omarchy-pkg-present" "$stub_bin/dnf" "$fake_root/bin/omadora-sync"
+chmod +x "$stub_bin/sudo" "$stub_bin/systemd-run" "$stub_bin/omarchy-pkg-present" "$stub_bin/dnf" "$fake_root/bin/omadora-sync"
 
 # Everything a blocked qemu-common upgrade leaves on stderr under dnf5, and no
 # more: under -y dnf declines to erase anything and only suggests

@@ -25,8 +25,10 @@ a readonly reference and is never modified.
   images through `limine-mkinitcpio` so Limine never boots stale images, and
   records `reboot-required` for `omarchy-update-restart` instead of prompting.
   It needs `python3-libdnf5`; until migration `1790412898.sh` installs it, an
-  older install's first update runs plain `dnf upgrade -y`. On Nobara hosts
-  `nobara-sync install-fixups` runs first so Nobara's own repairs still apply.
+  older install's first update runs plain `dnf upgrade -y`. It is command-line
+  only, and the update never launches `nobara-sync`, a GTK application even in
+  its CLI modes: on Nobara hosts, Nobara's own repairs are
+  `nobara-sync install-fixups`, run by hand.
   User Flatpaks stay on `omarchy-update-aur-pkgs`. The conflict handler parses
   the dnf-format problems omadora-sync writes to stderr; a failed group has
   already rolled itself back, so anything unmatched lands with a human. The
@@ -52,8 +54,7 @@ a readonly reference and is never modified.
   install or the verification fails instead of printing success anyway.
 - `bin/omarchy-update-dnf` is the Fedora analog of upstream's hidden
   `bin/omarchy-update-pacman`: it runs update transactions (`dnf ...`,
-  `omadora-sync cli`, `nobara-sync install-fixups`) as a PID 1
-  `systemd-run --scope` so a mid-transaction
+  `omadora-sync cli`) as a PID 1 `systemd-run --scope` so a mid-transaction
   systemd reexec cannot SIGKILL them, and sets `OMARCHY_UPDATE_DNF=1` for the
   guard. All update-flow callers (`update-system-pkgs`, `refresh-pacman`,
   `reinstall-pkgs`, `channel-set`) go through it.
