@@ -22,6 +22,7 @@ The design goal is:
 | Path | Owner | Purpose |
 | --- | --- | --- |
 | `${XDG_RUNTIME_DIR:-/tmp}/omarchy-update.lock` | user | Prevent overlapping update runs. Owned by `omarchy-update-lock`; compatibility wrappers inherit/respect it. |
+| `${XDG_RUNTIME_DIR}/omarchy-update-stay-awake/` | user | Private mode-0700 inhibitor coordination state. If no runtime directory is available, the helper keeps the same directory under the validated mode-0700 `/tmp/omarchy-$UID/` fallback. |
 | `/tmp/omarchy-update.log` | user | Transcript of `omarchy update`, used by `omarchy-update-analyze-logs`. |
 | `~/.local/state/omarchy/current/` | user | Generated active theme, selected theme name, and current background symlink. |
 | `~/.local/state/omarchy/migrations/` | user | Per-user migration markers. |
@@ -56,6 +57,8 @@ privileged work should invoke the appropriate helper or privilege prompt.
 Migrations must be idempotent; if one user already applied a machine-wide repair,
 the migration should no-op for other users.
 
+When invoked by the update, migrations inherit its cold credential state and no-update sudo wrapper, so a migration's `sudo` authorizes that one command without publishing a reusable timestamp. Running `omarchy-migrate` on its own does not establish that boundary. Historical migrations remain strictly ordered.
+
 For watchers and diagnostics, `omarchy-migrate --pending` prints pending
 migration names and exits `0` when any are pending. When no migrations are
 pending, it prints nothing and exits non-zero.
@@ -75,22 +78,13 @@ omarchy-hyprland-reload-guard resume
 which replaces the Arch ALPM pause/resume hooks that disabled live Hyprland
 config reloads while `/usr/share/omarchy/default/hypr/**` was replaced.
 
-`omarchy-update-system-pkgs`, `omarchy-refresh-pacman`, `omarchy-reinstall-pkgs`,
-and `omarchy-channel-set` run their transactions through the hidden
-`omarchy-update-dnf` helper:
+`omarchy-update-system-pkgs`, `omarchy-refresh-pacman`, `omarchy-reinstall-pkgs`, and `omarchy-channel-set` run their transactions through the hidden `omarchy-update-dnf` helper, which takes the full transaction command (`omarchy-update-dnf dnf ...`) and runs:
 
 ```bash
-omarchy-update-dnf dnf ...
+sudo env OMARCHY_UPDATE_DNF=1 systemd-run --scope --quiet --collect dnf ...
 ```
 
-The helper sets `OMARCHY_UPDATE_DNF=1` (which is what the guard allows) and
-registers the transaction as a PID 1 scope (`systemd-run --scope`) when booted
-under systemd, so a mid-transaction systemd reexec cannot SIGKILL it out of
-the user session's cgroups; without systemd it runs the transaction directly.
-It takes the full transaction command, so the Nobara `nobara-sync cli` branch
-of `omarchy-update-system-pkgs` gets the same shielding (the legacy
-`OMARCHY_UPDATE_PACMAN` / `OMARCHY_ALLOW_DIRECT_PACMAN` markers are still
-honored for old hooks). A user can intentionally bypass the guard with:
+`OMARCHY_UPDATE_DNF=1` is what the guard allows. The `systemd-run --scope` wrapper registers the transaction as a PID 1 scope: upgrading systemd runs scriptlets that reexec the system and user managers mid-transaction, and a transaction left inside a user-session scope can be SIGKILLed by that reexec, while system scopes survive the system manager's own reexec. When not booted under systemd (no `/run/systemd/system`), the helper runs the transaction directly. Because it takes the full command, the Nobara `nobara-sync cli` branch of `omarchy-update-system-pkgs` gets the same shielding (the legacy `OMARCHY_UPDATE_PACMAN` / `OMARCHY_ALLOW_DIRECT_PACMAN` markers are still honored for old hooks). Inside the protected update commands that `sudo` resolves to the no-update wrapper described under Path 1, so the transaction's password prompt authorizes only that command. A user can intentionally bypass the guard with:
 
 ```bash
 sudo env OMARCHY_ALLOW_DIRECT_DNF=1 dnf upgrade
@@ -105,6 +99,10 @@ High-level flow:
 
 ```text
 omarchy-update
+  ├─ require a bash -p startup, strip shell-startup environment, and check
+  │  that OMARCHY_PATH is this command's source root
+  ├─ revoke the sudo timestamp and put the no-update sudo wrapper first on a
+  │  fixed PATH
   ├─ ensure transcript logging through script(1) → /tmp/omarchy-update.log
   ├─ omarchy-update-lock
   │    └─ acquire the update lock and run omarchy-update inside it
@@ -118,21 +116,36 @@ omarchy-update
   │  installed but unconfigured fails the snapshot loudly, pointing at
   │  install/config/snapper.sh, and the update continues without one)
   ├─ omarchy-update-stay-awake start
-  ├─ run package updates, migrations, hooks, and log analysis
+  ├─ run system-package updates, bracketed by
+  │  omarchy-hyprland-reload-guard pause/resume
+  ├─ invalidate sudo, then run migrations; they and all later privileged work
+  │  keep no-update authentication
+  ├─ run orphan review and log analysis
   ├─ omarchy-update-status
   │    └─ refresh or clear the shell update indicator
+  ├─ omarchy-update-restart --services-only
+  │    └─ restart marked services and the shell
+  ├─ invalidate sudo, update per-user Flatpaks (no sudo), invalidate again
+  ├─ run the post-update hook, invalidate again, then update mise tools and
+  │  invalidate once more
   ├─ omarchy-update-stay-awake stop
   │    └─ release the sleep inhibitor and restore shell idle state, if changed
-  └─ omarchy-update-restart
+  └─ omarchy-update-restart --reboot-only
+       └─ offer the unprivileged reboot prompt
 ```
 
 Important behavior:
 
-- In dev-link mode, `omarchy update` fast-forwards the active checkout from its
-  configured upstream before changing system packages or running migrations.
-- `-y` exports `OMARCHY_UPDATE_UNATTENDED=1` — a promise not to ask anything.
-  Steps that would prompt (orphan removal, conflict handoff) report and skip
-  instead of blocking.
+- Protected update entrypoints (`omarchy-update`, `omarchy-refresh-pacman`, `omarchy-channel-set`, and `omarchy-update-stay-awake`) require the session's canonical `OMARCHY_PATH` to match their own checkout, or the packaged `/usr/bin` entrypoint when `OMARCHY_PATH` is `/usr/share/omarchy`, before selecting commands or the sudo wrapper. This preserves intentionally trusted development checkouts while rejecting a command paired with a different source root. System phases use a fixed command search path (the wrapper directory, `$OMARCHY_PATH/bin`, then the system `bin`/`sbin` directories); the caller's PATH is restored behind the sudo wrapper only for hooks and mise.
+- These mixed-trust entrypoints start Bash in privileged mode (`#!/bin/bash -p`), discard `BASH_ENV`, `ENV`, `SHELLOPTS`, `BASHOPTS`, `PS4`, `CDPATH`, `GLOBIGNORE`, and exported-function records before launching helpers, and reject an ordinary `bash path/to/command` invocation. Run them as executables (normally through the `omarchy` CLI); `/usr/bin/bash -p path/to/command` is the explicit interpreter form. This keeps shell startup injection from replacing the no-update sudo boundary.
+- Each protected entrypoint revokes the sudo timestamp (`sudo -k`) on entry and puts `default/omarchy/sudo-no-update/sudo` first on PATH. That wrapper execs `/usr/bin/sudo -N` (`--no-update`) for everything except the stand-alone timestamp and informational modes (`-k`, `-K`, `-h`, `-V`), so every `sudo` in the update — the dnf transaction through `omarchy-update-dnf`, migrations, service restarts, hooks — authorizes one command without publishing a reusable timestamp. If the installed sudo lacks `--no-update`, the entrypoint refuses to run rather than fall back to plain `sudo`.
+- In dev-link mode, `omarchy update` fast-forwards the active checkout from its configured upstream before changing system packages or running migrations.
+- Migrations remain in chronological order even though historical entries mix user-controlled code with later privileged repairs. Before entering that mixed-trust tail, Omarchy invalidates its timestamp again; the wrapper has covered the whole update, so neither the dnf transaction nor a later repair leaves a timestamp for a detached migration child to reuse. Upstream's AUR step has to route its build helper's own sudo through the wrapper; the Fedora equivalent, `omarchy-update-aur-pkgs` (historical name), runs `flatpak update --user` and needs no sudo, so there is nothing to route.
+- User-controlled post-update hooks and mise tools run only after every sudo-capable update stage: service restarts (`omarchy-update-restart --services-only`) come first, then the Flatpak step between two revocations, then the hook, another revocation, mise, and a final revocation. Omarchy invalidates its sudo timestamp before each boundary and on every exit; detached children therefore have no later reusable update authorization to wait for. Hooks and mise run with the caller's PATH behind the wrapper, so their own `sudo` calls are command-scoped as well.
+- This lifecycle controls authorization created by the protected workflow. `sudo -N` prevents cache updates but can use an existing valid credential, and `sudo -k` revokes the current session's timestamp. It does not isolate the account from unrelated concurrent authentication in another workflow.
+- Sleep inhibition authenticates before detaching (`sudo -N -b` from a terminal, `pkexec` without one), drops the held command back to the caller with `setpriv`, and closes both update lock descriptors before the persistent process starts. Cleanup accepts only caller-owned, mode-0600, single-link state and revalidates the recorded PID, process start time, owner, and random token immediately before every signal. The inhibitor covers the Flatpak step, hooks, and mise, and is released before the reboot prompt — releasing it needs no privilege, and a confirmed reboot could otherwise end the update before its EXIT trap clears the Stay Awake marker.
+- Channel switching (`omarchy-channel-set`) establishes the same boundary before dev link/unlink, refresh, and package operations. It keeps the wrapper first on PATH when changing source roots, carries the original user PATH into update hooks and mise through `OMARCHY_UPDATE_USER_PATH`, and checks after each package transaction — the `omarchy-refresh-pacman` upgrade and, once Omadora ships channel RPMs, the `dnf install` of the channel packages — that the wrapper still exists before any further privileged step, since a transaction can replace the running tree with a release that predates it. When it is gone, or the destination otherwise lacks it, the switch stops after the package switch with instructions to run that release's `omarchy update` from a fresh terminal, rather than letting a bare `sudo` or an updater that authenticates without `--no-update` publish a timestamp. Switching to `dev` checks the checkout for the wrapper, `omarchy-security-functions`, `omarchy-update`, and `omarchy-refresh-pacman` before linking and refuses a checkout that predates them. Failed and interrupted channel switches revoke on exit.
+- `-y` exports `OMARCHY_UPDATE_UNATTENDED=1` and suppresses Omarchy confirmation prompts. Interactive steps report and skip instead of blocking: the conflict handoff and the reboot prompt check `OMARCHY_UPDATE_UNATTENDED`, while orphan review keys only off having a terminal, so under `-y` in a terminal it still asks. Privileged commands still require sudo authorization, and command-scoped authentication can prompt separately for each command.
 - The free-space requirement uses a 10 GiB threshold and stops the update before
   confirmation when it is not met. If free space cannot be determined, the
   check is silently skipped. Set `OMARCHY_UPDATE_FORCE=1` to bypass the check.
@@ -246,6 +259,8 @@ repos ship; until then `omarchy-version-channel` reports `unknown`), while
 which `omarchy update` fast-forwards that checkout instead of upgrading a
 package.
 
+`omarchy-refresh-pacman` (historical name: on Fedora it only refreshes dnf metadata and upgrades, with no repo-config rewrite) runs the `pre-refresh-pacman` hook before its `dnf upgrade -y --refresh` transaction, so custom repositories and excludes the hook adds shape that transaction. The hook is user code: it runs cold, behind the no-update wrapper with the caller's original PATH, and the timestamp is revoked again before the transaction. Channel switching runs the hook once, during its refresh step, and not at all if the switch fails earlier (for example, a dev checkout that lacks the command-scoped wrapper).
+
 There is no version file at runtime. `omarchy-version` derives the version from
 `rpm -q` on whichever package is installed, or reports `dev (<hash>)` for a
 linked checkout, and `omarchy-version-channel` sniffs `/etc/yum.repos.d` to
@@ -272,15 +287,15 @@ scripts.
 | `omarchy-update-requires-free-space` | Aborts the update below a 10 GiB free-space threshold on `/`; silently skipped when free space cannot be determined; `OMARCHY_UPDATE_FORCE=1` bypasses. | **Keep internal/hidden.** |
 | `omarchy-migrate` | Public migration command. Waits for dnf, then runs all pending migrations for the current user. Supports `--pending` and `--baseline`. | **Keep.** This replaces the discarded `omarchy-update-user-finalize` name and no longer needs `--force`. |
 | `omarchy-update-pacman-guard` | Guard (historical name) that aborts direct `dnf upgrade` style upgrades unless Omarchy set `OMARCHY_UPDATE_DNF=1` or the user explicitly set `OMARCHY_ALLOW_DIRECT_DNF=1`. | **Keep internal/hidden.** This is what nudges users back to `omarchy update`. |
-| `omarchy-update-dnf` | Hidden helper that runs a guard-approved update transaction (`dnf` or `nobara-sync`) as a PID 1 scope (`systemd-run --scope`) so a mid-transaction systemd reexec cannot kill it; runs the transaction directly when not booted under systemd. | **Keep internal/hidden.** Single place that owns how Omarchy invokes privileged update transactions. |
+| `omarchy-update-dnf` | Hidden helper that runs a guard-approved update transaction (`dnf` or `nobara-sync`) as a PID 1 scope (`systemd-run --scope`) so a mid-transaction systemd reexec cannot kill it; runs the transaction directly when not booted under systemd. Its `sudo` is the no-update wrapper when called from a protected update command. | **Keep internal/hidden.** Single place that owns how Omarchy invokes privileged update transactions. |
 | `omarchy-migrate-notify` | Internal login-time notification helper. Uses `omarchy-migrate --pending` and shows a notification only when this user has pending migrations. | **Keep internal/hidden.** Clear name now that the public command is `omarchy-migrate`. |
 | `omarchy-update-user-notify` | Hidden compatibility wrapper for `omarchy-migrate-notify`. | **Temporary.** Keep only for old callers. |
 | `omarchy-update-available` | Update checker for shell widget and post-update refresh. | **Keep.** Could eventually be renamed `omarchy-update-check`, but current name matches widget semantics. |
-| `omarchy-update-aur-pkgs` | Updates the user's Flathub apps with `flatpak update --user` when Flathub is reachable. | **Keep.** Fedora has no AUR; per-user Flatpaks are the third-party story. |
+| `omarchy-update-aur-pkgs` | Updates the user's Flathub apps with `flatpak update --user` when Flathub is reachable. Needs no sudo; the update still runs it between two sudo revocations, after service restarts and before user hooks. | **Keep.** Fedora has no AUR; per-user Flatpaks are the third-party story. |
 | `omarchy-update-mise` | Runs `MISE_MINIMUM_RELEASE_AGE=0 mise up` for mise-managed tools — the override of mise's release-age cooldown is the point. | **Keep.** Mise-managed tools are intentionally part of the blessed update path. |
 | `omarchy-update-orphan-pkgs` | Lists orphans and prompts before removal; noninteractive mode never removes. | **Keep for now.** Safe because it is prompt-only. |
 | `omarchy-update-analyze-logs` | Scans `/tmp/omarchy-update.log` for known failure patterns, currently initramfs generation. | **Keep/expand.** Useful safety net; should grow only for high-signal checks. |
-| `omarchy-update-restart` | Prompts for reboot after kernel/Hyprland updates, restarts components with `restart-*-required` markers, and always restarts the shell. | **Keep.** Important final step; may eventually include service-restart checks. |
+| `omarchy-update-restart` | Restarts components selected by `restart-*-required` markers, always restarts the shell, and prompts for reboot after kernel/Hyprland updates (the kernel check uses `rpm -qf`). The internal `--services-only` / `--reboot-only` phase flags let the update finish sudo-capable restarts before user hooks and defer only the unprivileged reboot prompt. | **Keep.** Important final step; may eventually include service-restart checks. |
 | `omarchy-update-firmware` | Manual firmware update command using fwupd. Not part of the normal update pipeline. | **Keep separate.** Firmware is not a routine system update step. |
 | `omarchy-update-time` | Restarts `systemd-timesyncd`. | **Question.** Not really an update command. Consider renaming/moving under system/time maintenance. |
 
@@ -288,7 +303,8 @@ scripts.
 
 1. **Migrations run per-user from the update pipeline**
    - `omarchy update` runs `omarchy-migrate` after dnf finishes.
-   - Package-time migration runners do not apply migrations inside pacman.
+   - Package-time migration runners do not apply migrations inside the dnf
+     transaction.
    - Every user has per-user migration markers, and migrations must be
      idempotent when they repair machine-wide state.
 
