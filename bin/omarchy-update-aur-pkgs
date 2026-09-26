@@ -7,7 +7,7 @@
 # system flatpaks here.
 if omarchy-pkg-aur-accessible; then
   echo -e "\e[32m\nUpdate Flathub apps\e[0m"
-  flatpak update -y --user
+  flatpak update -y --user || exit 1
   echo
 else
   echo -e "\e[31m\nFlathub is unavailable (so skipping updates)\e[0m"
