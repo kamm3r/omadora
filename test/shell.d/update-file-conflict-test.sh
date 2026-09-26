@@ -23,19 +23,28 @@ while [[ $1 == -* ]]; do shift; done
 exec "$@"
 STUB
 
-# Pin the dnf branch: nobara-sync exists on Nobara hosts running this suite,
-# and the conflict handler under test only speaks dnf error reports.
+# Pin the omadora-sync branch on any host: no Nobara fixups (nobara-sync exists
+# on Nobara hosts running this suite), and the libdnf5 bindings reported
+# installed whether or not this host has them.
 cat >"$stub_bin/omarchy-cmd-present" <<'STUB'
 #!/bin/bash
 [[ $1 == nobara-sync ]] && exit 1
 command -v "$1" >/dev/null
 STUB
+cat >"$stub_bin/omarchy-pkg-present" <<'STUB'
+#!/bin/bash
+[[ $1 == python3-libdnf5 ]]
+STUB
 
 # Fails the first upgrade with the report under test, then succeeds unless the
-# case asked for the retry to fail too.
-cat >"$stub_bin/dnf" <<'STUB'
+# case asked for the retry to fail too. omadora-sync is the updater; dnf only
+# answers if the flow ever falls back to it.
+# The update runs $OMARCHY_PATH/bin/omadora-sync, so it gets its own fake root.
+fake_root="$test_tmp/omarchy"
+mkdir -p "$fake_root/bin"
+cat >"$fake_root/bin/omadora-sync" <<'STUB'
 #!/bin/bash
-[[ $1 == "upgrade" ]] || { echo "Unexpected dnf call: $*" >&2; exit 99; }
+[[ $1 == "cli" ]] || { echo "Unexpected omadora-sync call: $*" >&2; exit 99; }
 
 attempt=$(($(cat "$DNF_ATTEMPTS") + 1))
 echo "$attempt" >"$DNF_ATTEMPTS"
@@ -63,7 +72,13 @@ echo "Unexpected rpm call: $*" >&2
 exit 99
 STUB
 
-chmod +x "$stub_bin/sudo" "$stub_bin/systemd-run" "$stub_bin/omarchy-cmd-present" "$stub_bin/dnf" "$stub_bin/rpm"
+cat >"$stub_bin/dnf" <<'STUB'
+#!/bin/bash
+echo "Unexpected dnf call: $*" >&2
+exit 99
+STUB
+
+chmod +x "$stub_bin/sudo" "$stub_bin/systemd-run" "$stub_bin/omarchy-cmd-present" "$stub_bin/omarchy-pkg-present" "$fake_root/bin/omadora-sync" "$stub_bin/dnf" "$stub_bin/rpm"
 
 replaced="$test_tmp/replaced"
 
@@ -74,6 +89,7 @@ run_update() {
     DNF_ATTEMPTS="$test_tmp/attempts" \
     CONFLICT_REPORT="$test_tmp/report" \
     OWNED_PATHS="${OWNED_PATHS:-}" \
+    OMARCHY_PATH="$fake_root" \
     PATH="$stub_bin:$ROOT/bin:$PATH" \
     bash "$ROOT/bin/omarchy-update-system-pkgs"
 }

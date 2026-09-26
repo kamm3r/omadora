@@ -120,6 +120,7 @@ plymouth
 libpq
 power-profiles-daemon
 python3-gobject
+python3-libdnf5
 python3-poetry-core
 ia-writer-nerd-fonts
 qemu-user-binfmt

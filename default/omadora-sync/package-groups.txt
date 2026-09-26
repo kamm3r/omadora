@@ -1,0 +1,216 @@
+Omadora package groups for omadora-sync
+=======================================
+
+omadora-sync upgrades pending packages one group at a time, in the order below,
+and rolls a group's transaction back if it fails or leaves kernel modules or the
+boot images invalid. Each package lands in the first group that lists it; any
+pending package not listed here goes to the last group.
+
+Names are RPM names without version (an arch suffix such as .i686 is allowed).
+Listing a package that is not installed is harmless. An administrator copy at
+/etc/omadora-sync/package-groups.txt replaces this file.
+
+Rules:
+- "kernel" holds the kernel packages; a change here rebuilds out-of-tree
+  modules (akmods/dkms) and every initramfs, then re-registers kernels with
+  Limine through limine-mkinitcpio.
+- "graphic stack" holds Mesa, NVIDIA (RPM Fusion akmods), Vulkan, VA-API and
+  Wayland runtime libraries needed to reach a graphical session.
+- "system core packages" covers boot, initramfs, bootloader, firmware,
+  filesystems, authentication and the package manager itself.
+- "desktop environment" covers the Hyprland session Omadora ships: compositor,
+  portals, Quickshell and its Qt runtime, login manager, audio and input.
+- "Non-essential packages" is the residual. It means "not assigned above", not
+  "safe to remove".
+
+[kernel]
+kernel
+kernel-core
+kernel-modules
+kernel-modules-core
+kernel-modules-extra
+kernel-devel
+kernel-devel-matched
+kernel-headers
+
+[graphic stack]
+mesa-dri-drivers
+mesa-dri-drivers.i686
+mesa-filesystem
+mesa-libEGL
+mesa-libEGL.i686
+mesa-libGL
+mesa-libGL.i686
+mesa-libgbm
+mesa-libgbm.i686
+mesa-va-drivers
+mesa-va-drivers-freeworld
+mesa-vdpau-drivers-freeworld
+mesa-vulkan-drivers
+mesa-vulkan-drivers.i686
+libdrm
+libdrm.i686
+libglvnd
+libglvnd-egl
+libglvnd-gles
+libglvnd-glx
+libglvnd-glx.i686
+vulkan-loader
+vulkan-loader.i686
+libva
+libva-nvidia-driver
+intel-media-driver
+intel-vpl-gpu-rt
+libvpl
+egl-wayland
+egl-gbm
+libwayland-client
+libwayland-client.i686
+libwayland-cursor
+libwayland-egl
+libwayland-server
+akmod-nvidia
+akmod-nvidia-470xx
+kmod-nvidia
+nvidia-modprobe
+nvidia-persistenced
+nvidia-settings
+xorg-x11-drv-nvidia
+xorg-x11-drv-nvidia-cuda
+xorg-x11-drv-nvidia-cuda-libs
+xorg-x11-drv-nvidia-kmodsrc
+xorg-x11-drv-nvidia-libs
+xorg-x11-drv-nvidia-libs.i686
+xorg-x11-drv-nvidia-power
+xorg-x11-drv-nvidia-470xx
+xorg-x11-drv-nvidia-470xx-libs
+
+[system core packages]
+filesystem
+setup
+glibc
+glibc-common
+glibc-langpack-en
+bash
+coreutils
+util-linux
+util-linux-core
+systemd
+systemd-libs
+systemd-pam
+systemd-udev
+systemd-boot-unsigned
+dbus
+dbus-broker
+dracut
+dracut-config-rescue
+plymouth
+plymouth-scripts
+limine
+linux-firmware
+linux-firmware-whence
+amd-gpu-firmware
+amd-ucode-firmware
+intel-gpu-firmware
+nvidia-gpu-firmware
+alsa-sof-firmware
+microcode_ctl
+kmod
+kmod-libs
+cryptsetup
+cryptsetup-libs
+lvm2
+device-mapper
+device-mapper-libs
+btrfs-progs
+e2fsprogs
+dosfstools
+exfatprogs
+efibootmgr
+snapper
+zram-generator
+sudo
+pam
+shadow-utils
+passwd
+polkit
+openssl
+openssl-libs
+ca-certificates
+rpm
+rpm-libs
+dnf5
+libdnf5
+libdnf5-cli
+python3-libdnf5
+python3
+python3-libs
+fedora-gpg-keys
+fedora-release
+fedora-release-common
+fedora-repos
+NetworkManager
+NetworkManager-libnm
+NetworkManager-wifi
+wpa_supplicant
+iwd
+wireless-regdb
+firewalld
+
+[desktop environment]
+hyprland
+hyprland-guiutils
+hyprland-qtutils
+hyprlang
+hyprutils
+hyprcursor
+hyprgraphics
+hyprwayland-scanner
+hyprpicker
+hyprsunset
+aquamarine
+xdg-desktop-portal
+xdg-desktop-portal-hyprland
+xdg-desktop-portal-gtk
+xdg-utils
+xdg-terminal-exec
+uwsm
+quickshell
+qt6-qtbase
+qt6-qtbase-gui
+qt6-qtdeclarative
+qt6-qtwayland
+qt6-qtsvg
+qt6-qtimageformats
+qt6-qtmultimedia
+qt6-qt5compat
+gtk3
+gtk4
+gtk4-layer-shell
+sddm
+pipewire
+pipewire-libs
+pipewire-alsa
+pipewire-gstreamer
+pipewire-jack-audio-connection-kit
+pipewire-pulseaudio
+wireplumber
+wireplumber-libs
+libinput
+libxkbcommon
+xkeyboard-config
+mesa-libxatracker
+fcitx5
+fcitx5-gtk
+fcitx5-qt
+gnome-keyring
+power-profiles-daemon
+brightnessctl
+bluez
+alacritty
+foot
+wl-clipboard
+grim
+slurp
+
+[Non-essential packages]

@@ -25,12 +25,17 @@ while [[ $1 == -* ]]; do shift; done
 exec "$@"
 STUB
 
-# Pin the dnf branch: nobara-sync exists on Nobara hosts running this suite,
-# and the conflict handler under test only speaks dnf error reports.
+# Pin the omadora-sync branch on any host: no Nobara fixups (nobara-sync exists
+# on Nobara hosts running this suite), and the libdnf5 bindings reported
+# installed whether or not this host has them.
 cat >"$stub_bin/omarchy-cmd-present" <<'STUB'
 #!/bin/bash
 [[ $1 == nobara-sync ]] && exit 1
 command -v "$1" >/dev/null
+STUB
+cat >"$stub_bin/omarchy-pkg-present" <<'STUB'
+#!/bin/bash
+[[ $1 == python3-libdnf5 ]]
 STUB
 
 # Fails the first upgrade with the report under test, then succeeds. Every call
@@ -55,7 +60,14 @@ fi
 echo "upgrade complete"
 STUB
 
-chmod +x "$stub_bin/sudo" "$stub_bin/systemd-run" "$stub_bin/omarchy-cmd-present" "$stub_bin/dnf"
+# omadora-sync runs first and never asks anything; the handler's interactive
+# retry is raw dnf. Both count against the same attempts and call log.
+# The update runs $OMARCHY_PATH/bin/omadora-sync, so it gets its own fake root.
+fake_root="$test_tmp/omarchy"
+mkdir -p "$fake_root/bin"
+cp "$stub_bin/dnf" "$fake_root/bin/omadora-sync"
+
+chmod +x "$stub_bin/sudo" "$stub_bin/systemd-run" "$stub_bin/omarchy-cmd-present" "$stub_bin/omarchy-pkg-present" "$stub_bin/dnf" "$fake_root/bin/omadora-sync"
 
 # Everything a blocked qemu-common upgrade leaves on stderr under dnf5, and no
 # more: under -y dnf declines to erase anything and only suggests
@@ -80,6 +92,7 @@ update_env() {
     "DNF_CALLS=$test_tmp/calls" \
     "CONFLICT_REPORT=$test_tmp/report" \
     "OWNED_PATHS=" \
+    "OMARCHY_PATH=$fake_root" \
     "OMARCHY_UPDATE_UNATTENDED=${OMARCHY_UPDATE_UNATTENDED:-}" \
     "OMARCHY_UPDATE_INTERACTIVE=${OMARCHY_UPDATE_INTERACTIVE:-}" \
     "PATH=$stub_bin:$ROOT/bin:$PATH"
@@ -111,7 +124,7 @@ write_conflict_report
 run_on_terminal || fail "a package conflict is not resolved on a terminal"
 (($(cat "$test_tmp/attempts") == 2)) ||
   fail "a package conflict does not get an interactive retry"
-[[ " $(call_line 2 args) " == *" upgrade "* ]] ||
+[[ $(call_line 1 args) == "cli" && " $(call_line 2 args) " == *" upgrade "* ]] ||
   fail "the interactive retry does not upgrade"
 [[ " $(call_line 2 args) " != *" -y "* && " $(call_line 2 args) " != *" --assumeyes "* ]] ||
   fail "the interactive retry still answers dnf's questions itself"
@@ -169,6 +182,6 @@ write_conflict_report
 if OMARCHY_UPDATE_INTERACTIVE=1 run_headless; then
   fail "a caller reaches the interactive upgrade on its own"
 fi
-[[ " $(call_line 1 args) " == *" -y "* ]] ||
+[[ $(call_line 1 args) == "cli" ]] ||
   fail "a caller can ask for an interactive upgrade directly"
 pass "only the conflict handler can hand the upgrade to a person"

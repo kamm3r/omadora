@@ -17,13 +17,22 @@ a readonly reference and is never modified.
   Flathub repo, and `omarchy-update-aur-pkgs` runs `flatpak update --user`.
   RPM-land third-party sources (COPR, RPM Fusion, Terra) ride along with the
   regular `dnf upgrade`.
-- `bin/omarchy-update-system-pkgs` runs `dnf upgrade -y`. On Nobara hosts
-  (detected via `nobara-sync` on PATH) it runs `nobara-sync cli` instead:
-  Nobara quirk fixups plus grouped transactions with per-group rollback and
-  kernel-module validation, safer for Nobara kernels and akmods. No `--all`:
-  user Flatpaks stay on `omarchy-update-aur-pkgs`. The conflict handler only
-  parses dnf-format errors; a nobara-sync failure already rolled itself back,
-  so anything unmatched lands with a human, as before.
+- `bin/omarchy-update-system-pkgs` runs `omadora-sync cli` on every host:
+  Omadora's terminal-only copy of Nobara's `nobara-sync` (GPL-3.0-or-later,
+  kept with its license and change list in `default/omadora-sync/`). It
+  upgrades in groups (kernel, graphics stack, system core, Hyprland desktop,
+  the rest) with per-group rollback, rebuilds akmods/dkms modules and boot
+  images through `limine-mkinitcpio` so Limine never boots stale images, and
+  records `reboot-required` for `omarchy-update-restart` instead of prompting.
+  It needs `python3-libdnf5`; until migration `1790412898.sh` installs it, an
+  older install's first update runs plain `dnf upgrade -y`. On Nobara hosts
+  `nobara-sync install-fixups` runs first so Nobara's own repairs still apply.
+  User Flatpaks stay on `omarchy-update-aur-pkgs`. The conflict handler parses
+  the dnf-format problems omadora-sync writes to stderr; a failed group has
+  already rolled itself back, so anything unmatched lands with a human. The
+  handler's interactive retry is plain `dnf upgrade --allowerasing`.
+  `omadora-sync` is the one command in `bin/` outside the `omarchy-` prefix,
+  by name.
 - dnf5 CLI quirks the port works around: a bare `dnf list available` prints
   nothing (it wants a package-spec pattern), so the package picker lists
   candidates with `dnf repoquery --available --queryformat '%{name}\n'`
@@ -43,7 +52,8 @@ a readonly reference and is never modified.
   install or the verification fails instead of printing success anyway.
 - `bin/omarchy-update-dnf` is the Fedora analog of upstream's hidden
   `bin/omarchy-update-pacman`: it runs update transactions (`dnf ...`,
-  `nobara-sync cli`) as a PID 1 `systemd-run --scope` so a mid-transaction
+  `omadora-sync cli`, `nobara-sync install-fixups`) as a PID 1
+  `systemd-run --scope` so a mid-transaction
   systemd reexec cannot SIGKILL them, and sets `OMARCHY_UPDATE_DNF=1` for the
   guard. All update-flow callers (`update-system-pkgs`, `refresh-pacman`,
   `reinstall-pkgs`, `channel-set`) go through it.

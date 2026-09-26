@@ -1,0 +1,414 @@
+#!/usr/bin/python3 -I
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Derived from nobara-updater 2.0.1 (/usr/bin/nobara-updater, run as nobara-sync),
+# Copyright (C) the Nobara Project contributors,
+# https://github.com/nobara-project/nobara-core-packages
+# Modified for Omadora in 2026; see default/omadora-sync/README.md for what changed.
+
+# omarchy:summary=Update system packages in rollback-safe groups (Omadora's nobara-sync)
+# omarchy:args=[cli|check-updates|check-repos|repair]
+# omarchy:requires-sudo=true
+
+import argparse
+import logging
+import os
+import platform
+import pwd
+import re
+import shutil
+import subprocess
+import sys
+import urllib.error
+import urllib.request
+import xml.etree.ElementTree as ElementTree
+from pathlib import Path
+
+# -I keeps the caller's PYTHONPATH and user site out of a root process, and
+# sudo drops OMARCHY_PATH, so the package is found beside this entrypoint, the
+# way the shell commands find omarchy-security-functions.
+# Root must not leave root-owned bytecode caches in a user's checkout.
+sys.dont_write_bytecode = True
+
+ENTRYPOINT = Path(__file__).resolve()
+OMARCHY_ROOT = ENTRYPOINT.parent.parent
+sys.path.insert(0, str(OMARCHY_ROOT / "default" / "omadora-sync"))
+
+from omadora_sync.dnf import (  # noqa: E402
+    repoindex,
+    revert_package_transaction,
+    run_package_upgrade_transaction,
+    updatechecker,
+)
+from omadora_sync.grouped_updates import (  # noqa: E402
+    FAILURE_MARKER,
+    SUCCESS_MARKER,
+    GroupedUpdateSummary,
+    GroupUpdateResult,
+    PackageGroup,
+    ValidationOutcome,
+    default_package_groups_path,
+    load_package_groups,
+    log_failure_report,
+    run_grouped_updates,
+    validate_kernel_modules,
+)
+
+# Force UTF-8 for child processes; dnf output below is parsed in English.
+os.environ.setdefault("LANG", "C.UTF-8")
+os.environ.setdefault("LC_ALL", "C.UTF-8")
+
+LOG_FILE = Path("/var/log/omadora-sync.log")
+LOG_ROTATIONS = 5
+
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+
+
+class Color:
+    GREEN = "\033[92m"
+    RED = "\033[91m"
+    END = "\033[0m"
+
+
+class ConsoleFormatter(logging.Formatter):
+    """Color the group markers when writing to a terminal."""
+
+    def __init__(self, *args, color: bool, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.color = color
+
+    def format(self, record: logging.LogRecord) -> str:
+        entry = super().format(record)
+        if self.color:
+            entry = entry.replace(SUCCESS_MARKER, f"{Color.GREEN}{SUCCESS_MARKER}{Color.END}")
+            entry = entry.replace(FAILURE_MARKER, f"{Color.RED}{FAILURE_MARKER}{Color.END}")
+        return entry
+
+
+class MaxLevelFilter(logging.Filter):
+    def __init__(self, level: int) -> None:
+        super().__init__()
+        self.level = level
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        return record.levelno < self.level
+
+
+def rotate_log_file(log_file: Path) -> None:
+    for index in range(LOG_ROTATIONS - 1, 0, -1):
+        older = log_file.with_name(f"{log_file.name}.{index}")
+        if older.exists():
+            older.replace(log_file.with_name(f"{log_file.name}.{index + 1}"))
+    if log_file.exists():
+        log_file.replace(log_file.with_name(f"{log_file.name}.1"))
+
+
+def initialize_logging() -> None:
+    logger.handlers = []
+
+    # Progress goes to stdout and problems to stderr: omarchy-update-system-pkgs
+    # keeps stderr for its conflict handler, which reads dnf-style resolve
+    # problems and file conflicts from it.
+    stdout_handler = logging.StreamHandler(sys.stdout)
+    stdout_handler.setLevel(logging.INFO)
+    stdout_handler.addFilter(MaxLevelFilter(logging.WARNING))
+    stdout_handler.setFormatter(ConsoleFormatter("%(message)s", color=sys.stdout.isatty()))
+    logger.addHandler(stdout_handler)
+
+    stderr_handler = logging.StreamHandler(sys.stderr)
+    stderr_handler.setLevel(logging.WARNING)
+    stderr_handler.setFormatter(ConsoleFormatter("%(message)s", color=sys.stderr.isatty()))
+    logger.addHandler(stderr_handler)
+
+    # A root-owned system log, never a file in the invoking user's home. The
+    # read-only commands run as the user and keep to the console.
+    if os.geteuid() != 0:
+        return
+    try:
+        rotate_log_file(LOG_FILE)
+        file_handler = logging.FileHandler(LOG_FILE, mode="w", encoding="utf-8")
+    except OSError as error:
+        logger.warning("Could not open %s: %s", LOG_FILE, error)
+    else:
+        os.chmod(LOG_FILE, 0o640)
+        file_handler.setLevel(logging.INFO)
+        file_handler.setFormatter(
+            logging.Formatter("%(asctime)s - %(levelname)s - %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
+        )
+        logger.addHandler(file_handler)
+
+
+def ensure_root() -> None:
+    if os.geteuid() == 0:
+        return
+    # sudo resolves through PATH, so inside omarchy update this is the
+    # command-scoped wrapper and no reusable authorization is left behind.
+    os.execvp("sudo", ["sudo", sys.executable, "-I", str(ENTRYPOINT), *sys.argv[1:]])
+
+
+def invoking_user() -> pwd.struct_passwd | None:
+    uid = os.environ.get("SUDO_UID") or os.environ.get("PKEXEC_UID")
+    if not uid or not uid.isdigit() or int(uid) == 0:
+        return None
+    try:
+        return pwd.getpwuid(int(uid))
+    except KeyError:
+        return None
+
+
+def mark_reboot_required() -> None:
+    """Hand the reboot to omarchy-update-restart instead of prompting here."""
+
+    user = invoking_user()
+    if user is None:
+        logger.info("A reboot is required to load the updated kernel or drivers.")
+        return
+    state = OMARCHY_ROOT / "bin" / "omarchy-state"
+    result = subprocess.run(
+        ["runuser", "-u", user.pw_name, "--", str(state), "set", "reboot-required"],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        check=False,
+    )
+    if result.returncode != 0:
+        logger.warning("Could not record that a reboot is required: %s", result.stderr.strip())
+    logger.info("A reboot is required to load the updated kernel or drivers.")
+
+
+# UKI installs are not maintained by dracut. Any failure to tell counts as a
+# split kernel and initramfs, so validation still runs.
+def kernel_image_supported() -> bool:
+    try:
+        stub = subprocess.run(
+            ["bootctl", "--print-stub-path"],
+            capture_output=True, text=True, encoding="utf-8", errors="replace", check=True,
+        )
+        image_type = subprocess.run(
+            ["bootctl", "kernel-identify", stub.stdout.strip()],
+            capture_output=True, text=True, encoding="utf-8", errors="replace", check=True,
+        )
+    except (OSError, subprocess.CalledProcessError):
+        return True
+    if image_type.stdout.strip() == "uki":
+        logger.info("Unified kernel image detected; skipping initramfs regeneration.")
+        return False
+    return True
+
+
+def validate_modules(group: PackageGroup, packages, after_rollback: bool) -> ValidationOutcome:
+    return validate_kernel_modules(
+        group,
+        packages,
+        logger,
+        after_rollback=after_rollback,
+        dracut_enabled=kernel_image_supported(),
+    )
+
+
+def check_updates() -> list[str]:
+    package_names = sorted(updatechecker())
+    if package_names:
+        logger.info("System updates available:\n%s\n", "\n".join(package_names))
+    else:
+        logger.info("No system updates available.\n")
+    return package_names
+
+
+def install_system_updates() -> bool:
+    package_names = updatechecker()
+    if not package_names:
+        logger.info("Nothing to do.")
+        return True
+
+    logger.info("Starting system package updates, please do not turn off your computer...\n")
+    logger.info("Upgrading packages:\n%s", "\n".join(sorted(package_names)))
+    try:
+        package_groups = load_package_groups(default_package_groups_path())
+    except (OSError, ValueError) as error:
+        logger.error("%s Package groups - configuration failed: %s", FAILURE_MARKER, error)
+        summary = GroupedUpdateSummary(
+            (
+                GroupUpdateResult(
+                    key="package groups",
+                    label="Package groups",
+                    packages=tuple(package_names),
+                    success=False,
+                    failure_reason=str(error),
+                ),
+            )
+        )
+    else:
+        summary = run_grouped_updates(
+            package_names,
+            package_groups,
+            lambda packages, group: run_package_upgrade_transaction(
+                tuple(packages), logger, description=f"omadora-sync grouped update: {group.label}"
+            ),
+            lambda transaction_id, group: revert_package_transaction(
+                transaction_id, logger, description=f"omadora-sync grouped rollback: {group.label}"
+            ),
+            validate_modules,
+            logger,
+        )
+
+    log_failure_report(summary, logger)
+    if not summary.success:
+        logger.error("One or more DNF package update groups failed.")
+    if summary.kernel_or_module_update_applied:
+        mark_reboot_required()
+    return summary.success
+
+
+def repair() -> bool:
+    """Bring every package to the repository version with dnf distro-sync."""
+
+    logger.info("Running dnf distro-sync --refresh...")
+    result = subprocess.run(
+        ["dnf", "distro-sync", "--refresh", "-y"],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        check=False,
+        env={**os.environ, "LC_ALL": "C", "LANG": "C"},
+    )
+    if result.stdout:
+        logger.info("%s", result.stdout.rstrip())
+    if result.returncode != 0:
+        if result.stderr:
+            logger.error("%s", result.stderr.rstrip())
+        logger.error("dnf distro-sync failed with exit code %s.", result.returncode)
+        return False
+    if "Nothing to do" in result.stdout:
+        logger.info("distro-sync made no changes; repair complete.")
+        return True
+
+    # Rebuild modules and boot images for whatever distro-sync changed. Unlike
+    # nobara-sync, no /lib/modules directory is deleted here: Limine keeps its
+    # kernels on the ESP, so /boot is no guide to which modules are still used,
+    # and the package manager already owns and removes them.
+    validation = validate_modules(PackageGroup("kernel", "Repair", ()), (), False)
+    if not validation.success:
+        logger.error("%s Repair - %s", FAILURE_MARKER, validation.error)
+        return False
+    logger.info("%s Repair - distro-sync completed", SUCCESS_MARKER)
+    mark_reboot_required()
+    return True
+
+
+def repo_urls() -> list[tuple[str, str, str]]:
+    version_id = "0"
+    with Path("/etc/os-release").open(encoding="utf-8") as os_release:
+        for line in os_release:
+            if line.startswith("VERSION_ID="):
+                version_id = line.strip().split("=", 1)[1].strip('"')
+    basearch = platform.machine()
+
+    def expand(url: str) -> str:
+        url = url.replace("$releasever", version_id).replace("$basearch", basearch).rstrip("/")
+        return re.sub(r"(?<!:)/{2,}", "/", url)
+
+    urls = []
+    for repo in repoindex():
+        if repo.metalink:
+            urls.append((repo.id, "metalink", expand(str(repo.metalink))))
+        if repo.mirrorlist:
+            urls.append((repo.id, "mirrorlist", expand(str(repo.mirrorlist))))
+        for baseurl in repo.baseurl or []:
+            if baseurl:
+                urls.append((repo.id, "baseurl", expand(str(baseurl)) + "/repodata/repomd.xml"))
+    return urls
+
+
+def fetch(url: str, method: str = "GET") -> bytes | None:
+    request = urllib.request.Request(url, method=method, headers={"User-Agent": "omadora-sync"})
+    try:
+        with urllib.request.urlopen(request, timeout=5) as response:
+            if response.status != 200:
+                return None
+            return response.read() if method == "GET" else b""
+    except (urllib.error.URLError, OSError, ValueError):
+        return None
+
+
+def repo_url_reachable(kind: str, url: str) -> bool:
+    if kind == "baseurl":
+        return fetch(url, "HEAD") is not None
+    body = fetch(url)
+    if body is None:
+        return False
+    if kind == "metalink":
+        try:
+            return ElementTree.fromstring(body).tag.endswith("metalink")
+        except ElementTree.ParseError:
+            return False
+    # A mirrorlist is good when one of its mirrors serves repository metadata.
+    for mirror in body.decode("utf-8", "replace").splitlines():
+        mirror = mirror.strip()
+        if mirror and not mirror.startswith("#") and fetch(mirror.rstrip("/") + "/repodata/repomd.xml", "HEAD") is not None:
+            return True
+    return False
+
+
+def check_repos() -> bool:
+    logger.info("Checking repositories...\n")
+    healthy = True
+    for repo_id, kind, url in repo_urls():
+        if repo_url_reachable(kind, url):
+            logger.info("%s %s: %s: %s", SUCCESS_MARKER, repo_id, kind, url)
+        else:
+            healthy = False
+            logger.warning("%s %s: %s: %s", FAILURE_MARKER, repo_id, kind, url)
+    logger.info("")
+    return healthy
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        prog="omadora-sync",
+        description="Update Omadora's system packages in rollback-safe groups.",
+    )
+    subparsers = parser.add_subparsers(dest="command")
+    subparsers.add_parser("cli", help="Check repositories, then install system updates group by group (default).")
+    subparsers.add_parser("check-updates", help="List pending system updates.")
+    subparsers.add_parser("check-repos", help="Check that every enabled repository answers.")
+    subparsers.add_parser("repair", help="Resync every package to its repository version with dnf distro-sync.")
+    args = parser.parse_args()
+    args.command = args.command or "cli"
+    return args
+
+
+# Listing updates and probing repositories read nothing privileged, so they
+# run as the caller; only changing packages elevates.
+READ_ONLY_COMMANDS = {"check-updates", "check-repos"}
+
+
+def main() -> int:
+    args = parse_args()
+    if args.command not in READ_ONLY_COMMANDS:
+        ensure_root()
+    initialize_logging()
+
+    if args.command == "check-updates":
+        check_updates()
+        return 0
+    if args.command == "check-repos":
+        return 0 if check_repos() else 1
+    if args.command == "repair":
+        return 0 if repair() else 1
+
+    # Unreachable repositories only warn: the grouped transactions report the
+    # failure precisely if one is actually needed.
+    check_repos()
+    check_updates()
+    return 0 if install_system_updates() else 1
+
+
+if __name__ == "__main__":
+    try:
+        sys.exit(main())
+    except KeyboardInterrupt:
+        logger.error("Interrupted.")
+        sys.exit(130)

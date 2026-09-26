@@ -1,12 +1,12 @@
 #!/bin/bash
 
 # omarchy:summary=Run a dnf transaction for the Omarchy update flow, shielded from desktop session teardown.
-# omarchy:args=<dnf-args> | <nobara-sync-args>
+# omarchy:args=<dnf-args> | <omadora-sync-args> | <nobara-sync-args>
 # omarchy:hidden=true
 # omarchy:requires-sudo=true
 
 # Upgrading systemd runs its scriptlets mid-transaction, which reexecs both
-# the system manager and every user manager. A dnf (or nobara-sync) transaction
+# the system manager and every user manager. A dnf (or omadora-sync) transaction
 # running inside a user-session scope can be SIGKILLed by that reexec,
 # abandoning the transaction halfway. Registering the transaction as a PID 1
 # scope keeps it out of the user manager's cgroups entirely, and system scopes
