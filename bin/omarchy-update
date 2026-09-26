@@ -82,7 +82,8 @@ if [[ ${1:-} == "-y" ]] || omarchy-update-confirm; then
   # takes the update with it rather than migrating against what is still on disk.
   # The Hyprland reload guard replaces the Arch ALPM pause/resume hooks: dnf
   # has no transaction hooks, so the update brackets the package transaction
-  # itself. Best-effort only; a failed upgrade still reports through ERR.
+  # itself. Best-effort only; a failed upgrade still reports through ERR, which
+  # a bare exit would skip, so the status is re-raised from a subshell.
   omarchy-hyprland-reload-guard pause || true
   if omarchy-update-system-pkgs; then
     pkg_status=0
@@ -90,7 +91,7 @@ if [[ ${1:-} == "-y" ]] || omarchy-update-confirm; then
     pkg_status=$?
   fi
   omarchy-hyprland-reload-guard resume || true
-  (( pkg_status == 0 )) || exit "$pkg_status"
+  (( pkg_status == 0 )) || (exit "$pkg_status")
 
   # Historical migrations are strictly ordered and mix user hooks/downloaded
   # tooling with privileged repairs. The no-update sudo wrapper has covered the
