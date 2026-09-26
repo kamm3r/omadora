@@ -63,6 +63,12 @@ a readonly reference and is never modified.
   running any. Fresh Fedora installs must baseline: pre-port Arch-era
   migrations (pacman/mkinitcpio/limine-Arch-isms) are frozen history and must
   never execute here.
+- Migrations that repair the Neovim remote clipboard provider
+  (`1781587663.sh`, `1788996284.sh`) install from
+  `/usr/share/omarchy-nvim`, which only exists once an `omarchy-nvim` RPM
+  ships. Until then they skip the Neovim repair and exit 0 instead of stopping
+  every later migration; `1788996284.sh` checks the package version with
+  `rpm -q` and `rpm.vercmp` instead of `pacman -Q`/`vercmp`.
 - `bin/omarchy-upgrade-to-quattro` refuses non-pacman systems by itself and is
   unchanged (Arch-to-Arch upgrader, out of scope).
 
