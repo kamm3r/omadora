@@ -20,7 +20,9 @@ register_generated_extension() {
 
   if [[ -f $obsolete_file ]]; then
     tmp=$(mktemp)
-    if jq --arg key "$GENERATED_EXTENSION_ID-$GENERATED_EXTENSION_VERSION" 'del(.[$key])' "$obsolete_file" >"$tmp"; then
+    # The version follows the palette, so an entry VS Code wrote for any earlier
+    # palette would hide the extension again once that palette comes back.
+    if jq --arg prefix "$GENERATED_EXTENSION_ID-" 'with_entries(select(.key | startswith($prefix) | not))' "$obsolete_file" >"$tmp"; then
       mv "$tmp" "$obsolete_file"
       [[ $(jq 'length' "$obsolete_file") == "0" ]] && rm -f "$obsolete_file"
     else
