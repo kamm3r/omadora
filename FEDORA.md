@@ -53,6 +53,17 @@ a readonly reference and is never modified.
   deleted: dnf has no equivalent. The Hyprland reload pause/resume ALPM hooks
   are likewise inert files; `bin/omarchy-update` brackets the package
   transaction with `omarchy-hyprland-reload-guard pause/resume` instead.
+- `bin/omarchy-sudo-passwordless` keeps upstream's hardened grant (sudo
+  `NOTAFTER` deadline, boot tmpfiles cleanup, root actions only from the
+  packaged `/usr/bin` copy), but the ALPM passwordless-revoke hook becomes
+  `omarchy-settings` RPM scriptlets: `%pre`/`%preun` call
+  `__package-removing` and `%posttrans` calls the Fedora-only
+  `__package-installed`, which holds the removal marker while it sweeps and
+  lifts it only once no grant remains. Before publishing a grant the helper
+  checks with `rpm` that the settings package owns it and carries those three
+  scriptlets (see `docs/passwordless-sudo.md`). Checkout-only installs have no
+  packaged helper, so the command refuses there; the legacy-grant migration
+  `1788163635.sh` falls back to the checkout's helper for its one-shot cleanup.
 - Channels (`stable/rc/edge`) have no RPM repos yet, so `omarchy-channel-set`
   only switches the dev-checkout state and refreshes metadata;
   `omarchy-version-channel` reports `unknown` until omadora RPM repos ship.
