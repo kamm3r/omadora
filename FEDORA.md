@@ -145,6 +145,12 @@ Per project decision the Limine stack is kept, not replaced with GRUB:
   install from https://voxtype.io/ (installer configures it afterwards);
   LM Studio via Flathub (`ai.lmstudio.lm-studio`); Xbox controllers via the
   Terra `xpadneo` RPM (plus `kernel-devel`, not `linux-headers`).
+- AI desktop apps: `hermes-desktop` and `claude-desktop` are Omarchy
+  repackagings with no Fedora RPM or Flathub build yet, so Install > AI keeps
+  upstream's entries and scripts unchanged and they fail at `omarchy-pkg-add`
+  until an omadora COPR ships them. Choosing Hermes as the default agent
+  installs Hermes Desktop the same way. The Hermes migrations only retire the
+  old mise build and never install the app, so they run cleanly without it.
 - Development: Symfony CLI via its upstream release RPM (`SYMFONY_VERSION`,
   default 5.20.0, provides `symfony-cli`). Dropbox has no Fedora path yet
   (`dropbox`/`nautilus-dropbox`/`dropbox-cli` are all unpackaged).
