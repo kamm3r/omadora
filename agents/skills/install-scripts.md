@@ -13,6 +13,7 @@ commands and reusable setup leaves:
 - use `$OMARCHY_INSTALL` and `$OMARCHY_PATH` instead of hard-coded Omarchy paths.
 - keep root-scoped hardware setup under `install/hardware/` and orchestrate it through `install/hardware/all.sh`.
 - keep every per-user setup leaf under `install/user/` (including `install/user/hardware/` and `install/user/first-run/`) so it is clear what must run for each user.
+- Fedora does not guarantee kernel headers in the base install: akmod and DKMS installers add `kernel-devel` alongside their driver package (upstream Omarchy drops that step because its base install ships matching headers).
 - prefer helper commands for package and command checks where available.
 
 Raw `command -v`, `dnf`/`rpm`, and `rpm --import` are acceptable in package-helper

@@ -106,7 +106,15 @@ Per project decision the Limine stack is kept, not replaced with GRUB:
   `/etc/dracut.conf.d/omarchy-resume.conf` (`add_dracutmodules+=" resume "`),
   which is what actually matters.
 - `etc/limine-entry-tool.d/`, `default/limine/limine.conf`, snapshot, and
-  factory-reset flows are unchanged.
+  factory-reset flows are unchanged, except that `BOOT_ORDER` keeps
+  `"*, *fallback, Snapshots"`: upstream's preference for `linux-t2` and
+  `linux-omarchy` names Arch kernels Fedora does not have.
+- Fedora boots its own `kernel` package (Nobara's on Nobara hosts), which
+  already carries Panther Lake support. Upstream's kernel migrations
+  (`1789325478.sh` moving to `linux-omarchy`, `1789444024.sh` adding its
+  headers) are not carried, and neither is the claim that the base install
+  guarantees matching headers: akmod and DKMS installers add `kernel-devel`
+  themselves.
 - `bin/omarchy-update-firmware` stages the fwupd EFI binary at
   `/boot/EFI/omarchy/fwupdx64.efi` instead of `/boot/EFI/arch/`.
 
