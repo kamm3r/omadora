@@ -3,7 +3,7 @@
 # omarchy:summary=Build and install an Omarchy RPM from a local checkout
 # omarchy:group=dev
 # omarchy:args=[package-name] [path-to-checkout]
-# omarchy:examples=omarchy dev pkg-test | omarchy dev pkg-test omarchy-dev ~/Work/omarchy/omarchy-installer
+# omarchy:examples=omarchy dev pkg-test | omarchy dev pkg-test omarchy-dev ~/omadora
 
 set -euo pipefail
 
@@ -18,17 +18,18 @@ can't shadow.
 
 Defaults:
   packages          omarchy-settings-dev omarchy-dev
-  path-to-checkout  ~/Work/omarchy/omarchy-installer
+  path-to-checkout  \$OMARCHY_PATH (the dev-linked checkout)
 
 Examples:
   omarchy dev pkg-test
   omarchy dev pkg-test omarchy-settings-dev
-  omarchy dev pkg-test omarchy-dev ~/Work/omarchy/omarchy-installer
+  omarchy dev pkg-test omarchy-dev ~/omadora
 
 The release of the built package is tagged 'dev.<short-sha>[.dirty]' so
 'rpm -q' makes it obvious where the installed version came from.
 
-Specs are read from \${OMARCHY_SPECS_DIR:-~/Work/omarchy/omarchy-pkgs/specs}/<package-name>/.
+Specs are read from \${OMARCHY_SPECS_DIR:-<checkout>/packaging/rpm}/<package>/<package>.spec;
+a -dev package builds its release spec with dev_suffix=-dev.
 USAGE
   exit 0
 fi
@@ -48,23 +49,29 @@ dev_package_name() {
 
 if (( $# == 0 )); then
   PKGS=(omarchy-settings-dev omarchy-dev)
-  CHECKOUT="$HOME/Work/omarchy/omarchy-installer"
+  CHECKOUT="$OMARCHY_PATH"
   RPMBUILD_ARGS=()
 else
   PKGS=("$(dev_package_name "$1")")
-  CHECKOUT="${2:-$HOME/Work/omarchy/omarchy-installer}"
+  CHECKOUT="${2:-$OMARCHY_PATH}"
   RPMBUILD_ARGS=("${@:3}")
 fi
-SPECS_ROOT="${OMARCHY_SPECS_DIR:-$HOME/Work/omarchy/omarchy-pkgs/specs}"
+# The specs live in the checkout. A -dev package is the same spec built with
+# dev_suffix, which renames it and makes it replace the release package.
+SPECS_ROOT="${OMARCHY_SPECS_DIR:-$CHECKOUT/packaging/rpm}"
+
+spec_path() {
+  local base=${1%-dev}
+  printf '%s/%s/%s.spec\n' "$SPECS_ROOT" "$base" "$base"
+}
 
 if [[ ! -d "$CHECKOUT" ]]; then
   echo "Error: checkout not found at $CHECKOUT" >&2
   exit 1
 fi
 for PKG in "${PKGS[@]}"; do
-  SPEC_DIR="$SPECS_ROOT/$PKG"
-  if [[ ! -f "$SPEC_DIR/$PKG.spec" ]]; then
-    echo "Error: spec not found at $SPEC_DIR/$PKG.spec" >&2
+  if [[ ! -f $(spec_path "$PKG") ]]; then
+    echo "Error: spec not found at $(spec_path "$PKG")" >&2
     echo "       Pass a different package name as arg 1, or set OMARCHY_SPECS_DIR." >&2
     exit 1
   fi
@@ -82,17 +89,20 @@ fi
 new_release="dev.${short_sha}${dirty}"
 
 for PKG in "${PKGS[@]}"; do
-  SPEC_DIR="$SPECS_ROOT/$PKG"
+  spec=$(spec_path "$PKG")
+  suffix_args=()
+  [[ $PKG != *-dev ]] || suffix_args=(--define "dev_suffix -dev")
 
   echo "Building $PKG ${new_release} from $CHECKOUT"
-  echo "  spec dir: $SPEC_DIR"
+  echo "  spec: $spec"
   echo
 
   OMARCHY_SRC="$CHECKOUT" rpmbuild -bb \
     --define "_topdir $build_dir" \
     --define "omarchy_release ${new_release}" \
+    "${suffix_args[@]}" \
     "${RPMBUILD_ARGS[@]}" \
-    "$SPEC_DIR/$PKG.spec"
+    "$spec"
 
   # Install separately so a failed install leaves the previous version alone.
   # Dev builds frequently replace files owned by the released RPM; --allowerasing

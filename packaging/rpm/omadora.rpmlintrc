@@ -1,0 +1,21 @@
+# rpmlint filters for the Omadora packages. Each one is a deliberate choice;
+# anything rpmlint reports beyond these is worth a look.
+#   rpmlint -r packaging/rpm/omadora.rpmlintrc <rpms>
+
+# New users start with every shipped migration marked applied: the markers are
+# empty files by design.
+addFilter(r"zero-length /etc/skel/\.local/state/omarchy/migrations/")
+# Hook samples and first-run hook templates become executable only when a user
+# or omarchy-hook-install copies them into place.
+addFilter(r"non-executable-script \S+\.(sample|hook) ")
+# Sources the hardware setup commands copy into /usr/lib/systemd/system-sleep
+# with their own modes; the shipped unmount-fuse copy there is executable.
+addFilter(r"non-executable-script /usr/share/omarchy/default/systemd/system-sleep/")
+# sudoers drop-ins must be 0440.
+addFilter(r"non-readable /etc/sudoers\.d/omarchy-")
+# Upstream ships an intentionally empty lazygit config.
+addFilter(r"zero-length \S+/lazygit/config\.yml")
+# The project's name, and a word the dictionary lacks.
+addFilter(r"spelling-error .*(?i:omadora|passwordless)")
+# Command names ending in -config are not development files.
+addFilter(r"devel-file-in-non-devel-package /usr/bin/omarchy-")

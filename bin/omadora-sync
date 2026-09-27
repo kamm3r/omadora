@@ -31,7 +31,12 @@ sys.dont_write_bytecode = True
 
 ENTRYPOINT = Path(__file__).resolve()
 OMARCHY_ROOT = ENTRYPOINT.parent.parent
-sys.path.insert(0, str(OMARCHY_ROOT / "default" / "omadora-sync"))
+# A checkout keeps the package beside bin/; the RPM installs this entrypoint in
+# /usr/bin and the package under /usr/share/omarchy.
+PACKAGE_DIR = OMARCHY_ROOT / "default" / "omadora-sync"
+if not PACKAGE_DIR.is_dir():
+    PACKAGE_DIR = Path("/usr/share/omarchy/default/omadora-sync")
+sys.path.insert(0, str(PACKAGE_DIR))
 
 from omadora_sync.dnf import (  # noqa: E402
     repoindex,

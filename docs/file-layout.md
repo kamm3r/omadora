@@ -5,8 +5,8 @@ system.
 
 ## Mental model
 
-Two Arch packages are built from this one repo (PKGBUILDs live in the
-separate `omarchy-pkgs` repository, under `pkgbuilds/`):
+Two RPM packages are built from this one repo, from the specs in
+`packaging/rpm/` (see `packaging/README.md` for the COPR build):
 
 - **`omarchy`** — runtime binaries (`bin/`, including `bin/omarchy-dev-*`),
   install/finalize scripts (`install/`), migrations, themes, and the
@@ -20,11 +20,12 @@ separate `omarchy-pkgs` repository, under `pkgbuilds/`):
   `default/limine/` and `default/snapper/` trees, and the boot/snapshot
   story end-to-end). Also ships the three debug binaries
   (`omarchy-debug`, `omarchy-debug-idle`, `omarchy-upload-log`) needed by
-  the live ISO env.
+  the live ISO env, and the passwordless-sudo helper with
+  `omarchy-security-functions`, whose expiry must run the package's own
+  root-owned copy.
 
-Two other packages live in `omarchy-pkgs` but stand alone:
-`omarchy-nvim` (the Neovim
-setup; independently seeds `/etc/skel`).
+Upstream Omarchy also packages `omarchy-nvim` (the Neovim setup; it seeds
+`/etc/skel` on its own) separately; Omadora has no build of it yet.
 
 Some trees ship in neither package and exist only in the repo: `manual/`
 (user manual chapters), `agents/skills/` (contributor task guides), `docs/`,
@@ -67,12 +68,18 @@ omarchy/                            built into          installed at
 
 bin/omarchy-*                  ──►  omarchy             /usr/bin/omarchy-*
                                                         (and symlinks in /usr/share/omarchy/bin/)
+bin/omadora-sync               ──►  omarchy             /usr/bin/omadora-sync
+default/omadora-sync/**        ──►  omarchy             /usr/share/omarchy/default/omadora-sync/
 bin/omarchy-debug,
 bin/omarchy-debug-idle,
-bin/omarchy-upload-log         ──►  omarchy-settings    /usr/bin/  (needed before omarchy is installed)
+bin/omarchy-upload-log,
+bin/omarchy-sudo-passwordless,
+bin/omarchy-security-functions ──►  omarchy-settings    /usr/bin/  (needed before omarchy is installed,
+                                                                   or run as root by the expiry timer)
 
-default/libalpm/hooks/*.hook
-                                ──►  omarchy             /usr/share/libalpm/hooks/*.hook
+default/libalpm/, default/pacman/,
+etc/mkinitcpio.conf.d/         ──►  not shipped         (Arch reference; dnf has no ALPM hooks and
+                                                         dracut replaces mkinitcpio)
 
 install/**                     ──►  omarchy             /usr/share/omarchy/install/
 migrations/**                  ──►  omarchy             /usr/share/omarchy/migrations/
@@ -98,9 +105,11 @@ etc/**                         ──►  omarchy-settings    /etc/**           
   ├─ limine-entry-tool.d/{omarchy-defaults,omarchy-uki}.conf
   ├─ NetworkManager/, sudoers.d/, sysctl.d/, tmpfiles.d/,
   │  profile.d/omarchy.sh, …                            (a summary — `ls etc/` for the full ~17-entry tree)
-  └─ security/faillock.conf, nsswitch.conf,
-     cups/cups-browsed.conf, plymouth/plymouthd.conf    /usr/share/omarchy/etc-overrides/
-                                                          → /etc/* (post_install cp -f, see below)
+  └─ security/faillock.conf, cups/cups-browsed.conf,
+     cups/cups-files.conf, plymouth/plymouthd.conf      /usr/share/omarchy/etc-overrides/
+                                                          → /etc/* (%post cp -f, see below)
+etc/nsswitch.conf              ──►  not shipped         (authselect owns it on Fedora; %post runs
+                                                         `authselect enable-feature with-mdns4`)
 
 default/limine/limine.conf     ──►  omarchy-settings    /usr/share/omarchy/default/limine/limine.conf
 default/limine/default.conf    ──►  omarchy-settings    /usr/share/omarchy/default/limine/default.conf
@@ -129,7 +138,7 @@ default/**                     ──►  omarchy-settings    /usr/share/omarchy
   ├─ fonts/omarchy/omarchy.ttf                          /usr/share/fonts/omarchy/
   ├─ sddm/omarchy/                                      /usr/share/sddm/themes/omarchy/
   ├─ sddm/hyprland.lua                                  /usr/share/sddm/hyprland.lua
-  ├─ wayland-sessions/omarchy.desktop                   /usr/local/share/wayland-sessions/
+  ├─ wayland-sessions/omarchy.desktop                   /usr/share/wayland-sessions/
   └─ plymouth/                                          /usr/share/plymouth/themes/omarchy/
 
 logo.{txt,svg}, icon.{txt,png}  ──► omarchy-settings    /usr/share/omarchy/  (resync source)
@@ -142,16 +151,18 @@ The hardware-conditional `force-igpu` and `keyboard-backlight` sources also live
 
 ### Why `etc-overrides/` exists
 
-Some files under `/etc/` (`.bashrc` in `/etc/skel`, `nsswitch.conf`,
-`security/faillock.conf`, `cups/cups-browsed.conf`, `plymouth/plymouthd.conf`)
+Some files under `/etc/` (`.bashrc` in `/etc/skel`, `security/faillock.conf`,
+`cups/cups-browsed.conf`, `cups/cups-files.conf`, `plymouth/plymouthd.conf`)
 are owned by upstream Fedora packages, so we can't install over them via dnf
 without a file conflict. Instead their sources (under `etc/` in the repo;
 `.bashrc` from `default/bashrc`) ship at
-`/usr/share/omarchy/etc-overrides/` and the `omarchy-settings` `post_install`
-/ `post_upgrade` scriptlet `cp -f`'s them into place.
+`/usr/share/omarchy/etc-overrides/` (named `<dir>-<file>`, `dot.bashrc`) and
+the `omarchy-settings` `%post` scriptlet `cp -f`'s them into place on install
+and upgrade. `nsswitch.conf` is the exception: on Fedora authselect generates
+it, so `%post` enables authselect's mDNS feature instead of overwriting it.
 
 Tradeoff: user edits to those files get clobbered on every `omarchy-settings`
-upgrade. This is documented in the PKGBUILD.
+upgrade. The `etc_overrides` list in the settings spec is the full set.
 
 ## Locate indexing
 
@@ -349,9 +360,9 @@ return to the packaged default.
 | --- | --- |
 | Default file at `~/.config/foo/` | `config/foo/` |
 | `/etc/` drop-in we own outright | `etc/` |
-| `/etc/` file owned by an upstream package | `etc/` (see `etc/security/faillock.conf`), then add to `etc-overrides` in `omarchy-settings` PKGBUILD + scriptlet |
-| Package-owned system file (e.g. systemd user service in `/usr/lib`) | `default/`, then add the `install -Dm644` line in `omarchy-settings` PKGBUILD |
-| Per-user file that's static but lives outside `~/.config` | `default/`, then add `install -Dm644 ... $pkgdir/etc/skel/...` in `omarchy-settings` PKGBUILD |
+| `/etc/` file owned by an upstream package | `etc/` (see `etc/security/faillock.conf`), then add it to `etc_overrides` in the `omarchy-settings` spec |
+| Package-owned system file (e.g. systemd user service in `/usr/lib`) | `default/`, then add the `install -D -m 0644` line and its `%files` entry in the `omarchy-settings` spec |
+| Per-user file that's static but lives outside `~/.config` | `default/`, then add an `install ... "$skel/..."` line in the `omarchy-settings` spec |
 | Runtime tweak that needs `$HOME` or live system state | extend `omarchy-provision-user`, or add a per-user leaf under `install/user/` and wire into `install/user/all.sh` |
 | One-time root-side setup step | `install/config/*.sh` or `install/hardware/*.sh`, wire into `install/config/all.sh` or `install/hardware/all.sh` |
 | One-time fix for existing installs | `migrations/<unix-timestamp>.sh` |
