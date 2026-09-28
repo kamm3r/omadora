@@ -9,39 +9,20 @@ Omadora ships as two noarch RPMs built from this repository:
 
 ## Versions
 
-The version comes from `version`, with a pre-release suffix turned into RPM's tilde so it sorts before the release: `4.0.0.alpha` becomes `4.0.0~alpha`. COPR builds get the release `0.<commit count>.git<short sha>`, so every push sorts after the one before. `.copr/Makefile` writes both into the spec it packs, because COPR rebuilds the source RPM without this checkout.
+The version comes from `version`, with a pre-release suffix turned into RPM's tilde so it sorts before the release: `4.0.0.alpha` becomes `4.0.0~alpha`. COPR builds get the release `0.<commit count>.git<10-character sha>`, so every published commit sorts after the one before. `.copr/Makefile` writes both into the spec it packs, because COPR rebuilds the source RPM without this checkout.
 
-## Setting up the COPR (once)
+## Publishing to COPR
 
-1. Create a Fedora account at https://accounts.fedoraproject.org and log in to https://copr.fedorainfracloud.org with it.
-2. Install the client and save your API token: `sudo dnf install copr-cli`, then copy the token from https://copr.fedorainfracloud.org/api/ into `~/.config/copr`.
-3. Create the project. The packages are noarch and need nothing beyond Fedora to build:
+The live project is [kammer/omadora](https://copr.fedorainfracloud.org/coprs/kammer/omadora/) for Fedora 44 x86_64. Its two SCM package entries clone [kamm3r/omadora-pkg](https://github.com/kamm3r/omadora-pkg), which pins one commit of this source repository in `omadora-revision` and calls this repository's `.copr/Makefile`. The RPM specs remain here under `packaging/rpm/`. Both package entries have GitHub push rebuilds enabled.
 
-   ```bash
-   copr-cli create omadora --chroot fedora-44-x86_64 \
-     --description "Omadora: an Omarchy Hyprland desktop for Fedora"
-   ```
+To publish a change, push the Omadora commit, update `omadora-revision` in `omadora-pkg` to its full hash, and push that repository. Its GitHub webhook asks COPR to rebuild both packages from the pinned source. For a manual retry, use `copr-cli build-package kammer/omadora --name omarchy-settings` and then `copr-cli build-package kammer/omadora --name omarchy`.
 
-4. Add both packages as SCM sources using the make-srpm method. Replace the clone URL with your repository; the specs' `URL:` field assumes `https://github.com/kamm3r/omadora`, so change that too if it differs.
-
-   ```bash
-   for pkg in omarchy-settings omarchy; do
-     copr-cli add-package-scm omadora --name "$pkg" \
-       --clone-url https://github.com/kamm3r/omadora.git --commit main \
-       --method make_srpm --spec "packaging/rpm/$pkg/$pkg.spec" \
-       --webhook-rebuild on
-   done
-   ```
-
-5. Build them once: `copr-cli build-package omadora --name omarchy-settings` and then the same for `omarchy`.
-6. Rebuild on every push: in the COPR project open Settings → Integrations, copy the GitHub webhook URL, and add it under the GitHub repository's Settings → Webhooks (content type `application/json`, push events). Each push then rebuilds both packages from the same commit, so their versions stay in step.
-
-Adding `fedora-45-x86_64` (or `fedora-rawhide-x86_64`) to the project later is `copr-cli edit-chroot` or the project settings page; nothing in the specs is release-specific.
+Adding `fedora-45-x86_64` (or `fedora-rawhide-x86_64`) later is `copr-cli edit-chroot` or the project settings page; nothing in the specs is release-specific.
 
 ## Installing from the COPR
 
 ```bash
-sudo dnf copr enable kamm3r/omadora
+sudo dnf copr enable kammer/omadora
 sudo dnf install omarchy
 ```
 
