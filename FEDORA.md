@@ -238,7 +238,9 @@ Per project decision the Limine stack is kept, not replaced with GRUB:
   `1790573551.sh` adds them to existing installs, and the RPMs require the
   two they depend on: `omarchy` needs `util-linux-script` for the update
   transcript and `omarchy-settings` needs `plymouth-plugin-script` for its
-  boot theme.
+  boot theme. Likewise Arch's `gnome-keyring` brings `gcr` 4 with
+  `gcr-ssh-agent`, while Fedora's requires only `gcr3`, so
+  `omarchy-setup-security-ssh-agent` installs `gcr` itself.
 
 ## Packaging: RPM specs and COPR
 
