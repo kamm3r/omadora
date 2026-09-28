@@ -65,7 +65,7 @@ for package in "${restored[@]}"; do
 done
 pass "every preinstall is shipped in omarchy-base.packages"
 
-for package in omacut omacalc omawrite; do
+for package in omacut monologue omacalc omawrite hype; do
   grep -qxF "#$package" "$ROOT/install/omarchy-base.packages" ||
     fail "preinstalls track the Omacom apps for a future RPM" "$package is missing"
   printf '%s\n' "${restored[@]}" | grep -qxF "$package" &&

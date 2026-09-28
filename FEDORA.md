@@ -203,9 +203,10 @@ Per project decision the Limine stack is kept, not replaced with GRUB:
   (`org.libretro.RetroArch`); `lazydocker`/`tzupdate` install from
   upstream/pipx. The Flathub user remote is added by
   `install/fedora/repos.sh` (as the login user, never root). Omarchy's own
-  tools (aether, cliamp, herdr, omacalc, omacut, omawrite, omarchy-nvim,
-  tensaku, tobi-try, ttfx) stay commented in the package list until an omadora
-  COPR or source build ships them.
+  tools (aether, cliamp, herdr, hype, monologue, omacalc, omacut, omawrite,
+  omarchy-nvim, tensaku, tobi-try, ttfx) stay commented in the package list
+  until an omadora COPR or source build ships them; their install migrations
+  run only once dnf can find the package.
 - fzf shell integration: `default/bash/init` loads it with
   `eval "$(fzf --bash)"` instead of sourcing upstream's Arch paths
   (`/usr/share/fzf/completion.bash`, `/usr/share/fzf/key-bindings.bash`).

@@ -12,9 +12,9 @@ if gum confirm "Are you sure you want to restore all preinstalled web apps, TUI 
 
   # Mirrors the list in omarchy-remove-preinstalls; both track omarchy-base.packages.
   # Only packages with Fedora RPMs are listed; the Omarchy-only tools (aether,
-  # cliamp, omacut, omacalc, omawrite) and the Flatpak-only apps (obsidian,
-  # moonlight-qt, lazydocker via upstream binary) are restored through their
-  # own channels (see FEDORA.md).
+  # cliamp, monologue, omacut, omacalc, omawrite, hype) and the Flatpak-only
+  # apps (obsidian, moonlight-qt, lazydocker via upstream binary) are restored
+  # through their own channels (see FEDORA.md).
   if ! omarchy-pkg-add \
     libreoffice \
     xournalpp \
