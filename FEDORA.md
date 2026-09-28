@@ -172,6 +172,11 @@ Per project decision the Limine stack is kept, not replaced with GRUB:
 - Firewall is firewalld, not UFW: `install/config/firewall.sh` opens LocalSend
   ports via `firewall-cmd`; sshd/sunshine scripts use rich rules (Tailscale
   covered by its `100.64.0.0/10` CGNAT range). `ufw`/`ufw-docker` are dropped.
+  Where upstream's SSH removal deletes every standard UFW rule for port 22,
+  `omarchy-remove-security-sshd` removes the setup's rich rule, the `ssh`
+  service (which Fedora's default zone enables), and `22/tcp` from the default
+  zone, querying each first so absent entries stay quiet and real errors stop
+  the removal.
 - Vulkan drivers are the single `mesa-vulkan-drivers`; `linux-firmware-marvell`
   is bundled in Fedora's `linux-firmware`; no Panther Lake kernel swap
   (stock kernel covers it); `sof-firmware` is `alsa-sof-firmware`;

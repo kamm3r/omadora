@@ -1,11 +1,24 @@
 #!/bin/bash
 
-# omarchy:summary=Disable the OpenSSH server, close the firewall port, and optionally remove authorized keys
+# omarchy:summary=Disable the OpenSSH server, remove standard firewall rules, and optionally remove authorized keys
 # omarchy:requires-sudo=true
 
 set -e
 
 AUTHORIZED_KEYS="$HOME/.ssh/authorized_keys"
+
+# Remove a permanent firewalld entry of the default zone only when it is there.
+# A query exits 1 for an absent entry and otherwise only on a real error, which
+# stops the removal, so a repeated run stays quiet and a failure is reported.
+remove_firewall_entry() {
+  local kind=$1 value=$2 status=0
+  sudo firewall-cmd --permanent "--query-$kind=$value" >/dev/null || status=$?
+  case $status in
+    0) sudo firewall-cmd --permanent "--remove-$kind=$value" >/dev/null ;;
+    1) ;;
+    *) return "$status" ;;
+  esac
+}
 
 echo -e "\e[32mRemoving SSH server access.\n\e[0m"
 
@@ -13,10 +26,12 @@ echo "Stopping and disabling the OpenSSH server..."
 sudo systemctl disable --now sshd.service 2>/dev/null || true
 
 if omarchy-cmd-present firewall-cmd; then
-  echo "Closing the SSH port in the firewall..."
-  sudo firewall-cmd --permanent --remove-rich-rule='rule service name="ssh" limit value="25/minute" accept' >/dev/null 2>&1 || true
-  sudo firewall-cmd --permanent --remove-service=ssh >/dev/null 2>&1 || true
+  echo "Removing standard SSH firewall rules..."
+  remove_firewall_entry rich-rule 'rule service name="ssh" limit value="25/minute" accept'
+  remove_firewall_entry service ssh
+  remove_firewall_entry port 22/tcp
   sudo firewall-cmd --reload >/dev/null
+  echo "Standard SSH firewall rules removed. Review custom firewall rules separately."
 fi
 
 if [[ -s $AUTHORIZED_KEYS ]]; then
@@ -29,5 +44,5 @@ if [[ -s $AUTHORIZED_KEYS ]]; then
   fi
 fi
 
-echo -e "\e[32m\nThe SSH server has been disabled and its firewall port closed.\e[0m"
+echo -e "\e[32m\nThe SSH server has been disabled.\e[0m"
 echo "The openssh-server package remains installed since openssh also provides the ssh client."
