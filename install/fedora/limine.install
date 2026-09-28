@@ -1,0 +1,41 @@
+#!/bin/bash
+# kernel-install plugin, installed as /etc/kernel/install.d/96-limine.install:
+# registers each kernel Fedora installs with Limine and drops it again when the
+# kernel is removed, the job Arch's limine-mkinitcpio-hook does from pacman
+# hooks. It runs after 20-grub.install has copied /boot/vmlinuz-<kver> and
+# 50-dracut.install has built /boot/initramfs-<kver>.img.
+
+command=$1
+kernel_version=$2
+
+boot_dir=/boot
+# Called by absolute path: kernel-install inherits the RPM scriptlet PATH,
+# which leaves out /usr/local/bin, where the source-built tool lives.
+limine_entry_tool=""
+for candidate in /usr/local/bin/limine-entry-tool /usr/bin/limine-entry-tool; do
+  if [[ -x $candidate ]]; then
+    limine_entry_tool=$candidate
+    break
+  fi
+done
+
+# A machine without Limine has nothing to register.
+[[ -n $limine_entry_tool ]] || exit 0
+
+case $command in
+  add)
+    kernel_image="$boot_dir/vmlinuz-$kernel_version"
+    initramfs="$boot_dir/initramfs-$kernel_version.img"
+    if [[ ! -f $kernel_image || ! -f $initramfs ]]; then
+      echo "Limine: $kernel_image or $initramfs is missing, so kernel-$kernel_version was not registered." >&2
+      exit 1
+    fi
+    "$limine_entry_tool" --add-kernel "kernel-$kernel_version" "$kernel_image" "$initramfs" --quiet
+    ;;
+  remove)
+    # A kernel Limine never listed is not an error worth failing a removal over.
+    if ! "$limine_entry_tool" --remove-kernel "kernel-$kernel_version" --quiet; then
+      echo "Limine: could not remove kernel-$kernel_version; check the Limine menu." >&2
+    fi
+    ;;
+esac

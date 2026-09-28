@@ -121,10 +121,21 @@ Per project decision the Limine stack is kept, not replaced with GRUB:
   because dracut otherwise writes into `<ESP>/<machine-id>/<kver>/` once
   `limine-entry-tool` has created the machine-id directory, and that
   per-version directory does not exist. `install/fedora/limine-update`
-  re-deploys the bootloader binaries (like
-  `install/fedora/limine-update` re-deploys the bootloader binaries (like
-  Arch's helper of the same name), so all existing callers work unchanged.
-  Both install to `/usr/local/bin` via `install/fedora/bootloader.sh`.
+  re-deploys the bootloader binaries (like Arch's helper of the same name),
+  so all existing callers work unchanged. Both install to `/usr/local/bin`
+  via `install/fedora/bootloader.sh`.
+- Kernel packages reach Limine through `kernel-install` rather than pacman
+  hooks. The same machine-id directory makes `kernel-install` pick a Boot
+  Loader Specification layout on the ESP, where `20-grub.install` skips
+  `/boot` and new kernels land as ESP copies nothing boots, so
+  `install/fedora/kernel-install.conf` pins `layout=other` and
+  `BOOT_ROOT=/boot` as `/etc/kernel/install.conf`.
+  `install/fedora/limine.install`, installed as
+  `/etc/kernel/install.d/96-limine.install`, then registers each added kernel
+  with `limine-entry-tool` and removes it on uninstall. It calls the tool by
+  absolute path because RPM scriptlets leave `/usr/local/bin` off PATH.
+  `bootloader.sh` installs both, and migration `1790575242.sh` adds them to
+  existing installs and clears the ESP copies the old layout left.
 - `etc/dracut.conf.d/omarchy.conf` replaces the mkinitcpio `HOOKS=` list
   (`etc/mkinitcpio.conf.d/omarchy_hooks.conf` stays in tree as reference).
   Hardware quirks that wrote `/etc/mkinitcpio.conf.d/*.conf` (nvidia, apple-t2,

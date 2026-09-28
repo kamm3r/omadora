@@ -17,5 +17,5 @@ for kdir in /usr/lib/modules/*/; do
   initrd="/boot/initramfs-$kver.img"
   dracut -f "$initrd" "$kver"
   echo "Registering kernel-$kver"
-  limine-entry-tool --add-kernel "kernel-$kver" "$initrd" "${kdir}vmlinuz" --quiet
+  limine-entry-tool --add-kernel "kernel-$kver" "${kdir}vmlinuz" "$initrd" --quiet
 done

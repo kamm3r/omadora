@@ -38,11 +38,15 @@ done
 
 # 4. dracut-backed limine-mkinitcpio shim: same name and contract as the Arch
 #    limine-mkinitcpio-hook helper (rebuild images, sync ESP, update entries),
-#    implemented with dracut --regenerate-all. Plus a limine-update shim
+#    implemented with dracut per installed kernel. Plus a limine-update shim
 #    (re-deploy the bootloader binaries, like Arch's limine-entry-tool
 #    package helper) so refresh/factory-reset/provisioning keep working.
+#    kernel-install keeps Fedora's /boot layout and registers every kernel it
+#    adds or removes with Limine, the job the Arch hook does from pacman.
 install -m 0755 "$OMADORA_ROOT/install/fedora/limine-mkinitcpio" /usr/local/bin/limine-mkinitcpio
 install -m 0755 "$OMADORA_ROOT/install/fedora/limine-update" /usr/local/bin/limine-update
+install -D -m 0644 "$OMADORA_ROOT/install/fedora/kernel-install.conf" /etc/kernel/install.conf
+install -D -m 0755 "$OMADORA_ROOT/install/fedora/limine.install" /etc/kernel/install.d/96-limine.install
 
 # 5. Ship the default limine config and entry-tool defaults on first install.
 if [[ ! -f /boot/limine.conf ]]; then
