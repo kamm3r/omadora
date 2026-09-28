@@ -204,6 +204,12 @@ Per project decision the Limine stack is kept, not replaced with GRUB:
   tools (aether, cliamp, herdr, omacalc, omacut, omawrite, omarchy-nvim,
   tensaku, tobi-try, ttfx) stay commented in the package list until an omadora
   COPR or source build ships them.
+- fzf shell integration: `default/bash/init` loads it with
+  `eval "$(fzf --bash)"` instead of sourcing upstream's Arch paths
+  (`/usr/share/fzf/completion.bash`, `/usr/share/fzf/key-bindings.bash`).
+  Fedora's `fzf` ships only `/usr/share/fzf/shell/key-bindings.bash` and no
+  completion script, so the Arch paths left Ctrl+R, Ctrl+T, and `**`
+  completion unset.
 
 ## Packaging: RPM specs and COPR
 
