@@ -10,6 +10,7 @@
 #   lionheartp/Hyprland (COPR) - hyprland, hyprpicker, hyprsunset,
 #                                hyprland-guiutils, xdg-desktop-portal-hyprland,
 #                                quickshell
+#   kammer/omadora (COPR)      - Omadora and ported Omarchy applications
 #   RPM Fusion free + nonfree  - codecs/ffmpeg, obs-studio, intel-media-driver,
 #                                akmod-nvidia, libva-intel-driver, sunshine,
 #                                v4l2loopback (akmod)
@@ -31,6 +32,10 @@ fi
 # Hyprland COPR (hyprland stack + quickshell)
 if [[ ! -f /etc/yum.repos.d/_copr_copr.fedorainfracloud.org_lionheartp_Hyprland.repo ]]; then
   dnf copr enable -y lionheartp/Hyprland
+fi
+
+if [[ ! -f /etc/yum.repos.d/_copr_copr.fedorainfracloud.org_kammer_omadora.repo ]]; then
+  dnf copr enable -y kammer/omadora
 fi
 
 # RPM Fusion (codecs, drivers). The release RPMs match the running Fedora

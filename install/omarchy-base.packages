@@ -11,26 +11,27 @@
 #                              quickshell
 #   RPM Fusion free/nonfree  - codecs, obs-studio, intel-media-driver,
 #                              akmod-nvidia, libva-intel-driver
+#   kammer/omadora            - Omadora runtime and ported Omarchy apps
 #
 # Arch name shown in (parens) where it differs.
 
-# Omarchy's own tools: Arch PKGBUILDs, no RPM yet. Build from source
-# (see FEDORA.md) until an omadora COPR ships them.
-#aether
+# Omarchy tools with Fedora RPMs in kammer/omadora.
+aether
+hype
+monologue
+omacalc
+omacut
+omawrite
+owe
+owe-lockfeed
+tobi-try
+ttfx
+# Omarchy tools awaiting a Fedora RPM (see FEDORA.md).
 #cliamp
 #herdr
-#hype
-#monologue
-#omacalc
-#omacut
 #omasnap
-#omawrite
 #omarchy-nvim
-#owe
-#owe-lockfeed
 #tensaku
-#tobi-try
-#ttfx
 alsa-utils
 avahi
 bash-completion

@@ -65,13 +65,11 @@ for package in "${restored[@]}"; do
 done
 pass "every preinstall is shipped in omarchy-base.packages"
 
-for package in omacut monologue omacalc omawrite hype; do
-  grep -qxF "#$package" "$ROOT/install/omarchy-base.packages" ||
-    fail "preinstalls track the Omacom apps for a future RPM" "$package is missing"
-  printf '%s\n' "${restored[@]}" | grep -qxF "$package" &&
-    fail "preinstalls do not restore Omacom apps with no RPM" "$package cannot install"
+for package in hype monologue omacalc omacut omawrite; do
+  printf '%s\n' "${restored[@]}" | grep -qxF "$package" ||
+    fail "preinstalls restore the packaged Omacom apps" "$package is missing"
 done
-pass "preinstalls track the Omacom apps without restoring them"
+pass "preinstalls restore the packaged Omacom apps"
 
 # The bindings key off the marker, so clearing it before the packages land would
 # point them at apps that never came back.

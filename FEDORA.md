@@ -98,7 +98,8 @@ a readonly reference and is never modified.
 
 ## Repositories: `install/fedora/repos.sh`
 
-Beyond Fedora proper: Terra (limine, mise, `usage-cli`, `localsend-bin`,
+Beyond Fedora proper: Omadora COPR (`omarchy`, `omarchy-settings`, and ported
+Omarchy apps), Terra (limine, mise, `usage-cli`, `localsend-bin`,
 `uwsm`, lazygit, asusctl, broadcom-wl, xpadneo, v4l2-relayd),
 lionheartp/Hyprland COPR (hyprland stack, quickshell), RPM Fusion free/nonfree
 (codecs, obs-studio, intel-media-driver, akmod-nvidia, v4l2loopback, sunshine).
@@ -195,7 +196,7 @@ Per project decision the Limine stack is kept, not replaced with GRUB:
   (`app.zen_browser.zen`). Brave Origin (an Omarchy AUR rebuild) has no
   equivalent; its menu entries fail gracefully with an explanation.
 - Editors: VSCode (Microsoft repo), Cursor (`cursor` from Terra), Zed (`zed`
-  from Terra; `omazed` theme helper pending an RPM), Sublime Text (official
+  from Terra; `omazed` theme helper from Omadora COPR), Sublime Text (official
   Sublime repo via `omarchy-install-editor-sublime`), stock `emacs`,
   `vim-enhanced`, `neovim`, `helix`.
 - Services: NordVPN via its official release RPM
@@ -228,10 +229,14 @@ Per project decision the Limine stack is kept, not replaced with GRUB:
   (`org.libretro.RetroArch`); `lazydocker`/`tzupdate` install from
   upstream/pipx. The Flathub user remote is added by
   `install/fedora/repos.sh` (as the login user, never root). Omarchy's own
-  tools (aether, cliamp, herdr, hype, monologue, omacalc, omacut, omawrite,
-  omarchy-nvim, tensaku, tobi-try, ttfx) stay commented in the package list
-  until an omadora COPR or source build ships them; their install migrations
-  run only once dnf can find the package.
+  tools `aether`, `hype`, `monologue`, `omacalc`, `omacut`, `omawrite`, `owe`,
+  `owe-lockfeed`, `tobi-try`, and `ttfx` now ship from `kammer/omadora` COPR
+  and are in the base package list. Optional RPMs for `omarchy-audio-tuner`,
+  `omazed`, `omarchy-emacs`, `omarchy-fish`, and `omarchy-zsh` also ship there.
+  Other Omarchy tools (cliamp, herdr, omasnap, omarchy-nvim, tensaku) stay
+  commented until their Fedora RPMs ship; their install migrations run only
+  once dnf can find the package. The separate `omadora-pkg` repository tracks
+  the upstream package inventory and Fedora ports.
 - fzf shell integration: `default/bash/init` loads it with
   `eval "$(fzf --bash)"` instead of sourcing upstream's Arch paths
   (`/usr/share/fzf/completion.bash`, `/usr/share/fzf/key-bindings.bash`).
