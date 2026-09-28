@@ -1,0 +1,33 @@
+#!/bin/bash
+# kernel-install plugin, installed as /etc/kernel/install.d/50-dracut.install
+# so it takes the place of Fedora's plugin of the same name for the "other"
+# layout that /etc/kernel/install.conf pins. Fedora's quotes an empty
+# "$UEFI_OPTS" in that layout, so dracut receives an empty output path and
+# picks its own, which is <ESP>/<machine-id>/<kver>/initrd once
+# limine-entry-tool has created the machine-id directory, a directory that does
+# not exist. Name the image instead, as limine-mkinitcpio does.
+
+command=$1
+kernel_version=$2
+
+fedora_plugin=/usr/lib/kernel/install.d/50-dracut.install
+boot_dir=/boot
+
+# Every other layout, a UKI, or another initrd generator stays Fedora's.
+if [[ ${KERNEL_INSTALL_LAYOUT:-} != "other" || ${KERNEL_INSTALL_IMAGE_TYPE:-} == "uki" ||
+  ${KERNEL_INSTALL_INITRD_GENERATOR:-dracut} != "dracut" ]]; then
+  exec "$fedora_plugin" "$@"
+fi
+
+initramfs="$boot_dir/initramfs-$kernel_version.img"
+
+case $command in
+  add)
+    # An initrd passed to kernel-install is used as given.
+    (( $# > 4 )) && exit 0
+    exec dracut -f --kver "$kernel_version" "$initramfs"
+    ;;
+  remove)
+    exec rm -f -- "$initramfs"
+    ;;
+esac

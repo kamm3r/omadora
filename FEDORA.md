@@ -129,13 +129,20 @@ Per project decision the Limine stack is kept, not replaced with GRUB:
   Loader Specification layout on the ESP, where `20-grub.install` skips
   `/boot` and new kernels land as ESP copies nothing boots, so
   `install/fedora/kernel-install.conf` pins `layout=other` and
-  `BOOT_ROOT=/boot` as `/etc/kernel/install.conf`.
+  `BOOT_ROOT=/boot` as `/etc/kernel/install.conf`. In that layout Fedora's
+  `50-dracut.install` passes dracut an empty output path (a quoted empty
+  `$UEFI_OPTS`), and dracut then picks the same missing ESP directory, so
+  `install/fedora/dracut.install` takes its place as
+  `/etc/kernel/install.d/50-dracut.install`, naming
+  `/boot/initramfs-<kver>.img` and handing any other layout back to Fedora's.
   `install/fedora/limine.install`, installed as
   `/etc/kernel/install.d/96-limine.install`, then registers each added kernel
   with `limine-entry-tool` and removes it on uninstall. It calls the tool by
   absolute path because RPM scriptlets leave `/usr/local/bin` off PATH.
-  `bootloader.sh` installs both, and migration `1790575242.sh` adds them to
-  existing installs and clears the ESP copies the old layout left.
+  `bootloader.sh` installs all three. On existing installs migration
+  `1790575242.sh` adds the layout and the Limine plugin and clears the ESP
+  copies the old layout left, and `1790587666.sh` adds the dracut plugin and
+  reruns `kernel-install add` for any kernel still missing its image.
 - `etc/dracut.conf.d/omarchy.conf` replaces the mkinitcpio `HOOKS=` list
   (`etc/mkinitcpio.conf.d/omarchy_hooks.conf` stays in tree as reference).
   Hardware quirks that wrote `/etc/mkinitcpio.conf.d/*.conf` (nvidia, apple-t2,

@@ -150,3 +150,97 @@ run_migration || fail "a machine without Limine skips the migration" "$(<"$test_
 [[ ! -s $calls && ! -e $etc/kernel ]] || fail "a machine without Limine is left alone" "$(<"$calls")"
 [[ -d $esp/$machine_id/0-rescue ]] || fail "a machine without Limine keeps its ESP as it is"
 pass "a machine without Limine is left alone"
+
+# The dracut plugin names the image in the "other" layout and hands every other
+# case to Fedora's plugin.
+dracut_plugin="$ROOT/install/fedora/dracut.install"
+grep -q 'dracut.install" /etc/kernel/install.d/50-dracut.install$' "$ROOT/install/fedora/bootloader.sh" ||
+  fail "the bootloader installer replaces Fedora's dracut plugin"
+[[ -x $dracut_plugin ]] || fail "the dracut plugin is executable"
+grep -Fxq 'fedora_plugin=/usr/lib/kernel/install.d/50-dracut.install' "$dracut_plugin" &&
+  grep -Fxq 'boot_dir=/boot' "$dracut_plugin" || fail "the dracut plugin keeps its paths fixed"
+pass "the dracut plugin replaces Fedora's with fixed paths"
+
+dracut_boot="$test_dir/dracut-boot"
+mkdir -p "$dracut_boot" "$test_dir/dracut-bin"
+cat >"$test_dir/dracut-bin/dracut" <<STUB
+#!/bin/bash
+printf 'dracut %s\n' "\$*" >>"$calls"
+STUB
+cat >"$test_dir/fedora-dracut" <<STUB
+#!/bin/bash
+printf 'fedora %s\n' "\$*" >>"$calls"
+STUB
+chmod +x "$test_dir/dracut-bin/dracut" "$test_dir/fedora-dracut"
+sed -e "s|^fedora_plugin=/usr/lib/kernel/install.d/50-dracut.install$|fedora_plugin=$test_dir/fedora-dracut|" \
+  -e "s|^boot_dir=/boot$|boot_dir=$dracut_boot|" \
+  "$dracut_plugin" >"$test_dir/dracut-plugin"
+
+run_dracut_plugin() {
+  : >"$calls"
+  KERNEL_INSTALL_LAYOUT=$1 KERNEL_INSTALL_IMAGE_TYPE=${image_type:-pe} PATH="$test_dir/dracut-bin:$PATH" \
+    bash "$test_dir/dracut-plugin" "${@:2}"
+}
+
+run_dracut_plugin other add "$version" /entry /vmlinuz || fail "the dracut plugin builds an image"
+[[ $(<"$calls") == "dracut -f --kver $version $dracut_boot/initramfs-$version.img" ]] ||
+  fail "the dracut plugin names the image" "$(<"$calls")"
+pass "the dracut plugin names the image in the /boot layout"
+
+run_dracut_plugin other add "$version" /entry /vmlinuz /given-initrd || fail "a given initrd is accepted"
+[[ ! -s $calls ]] || fail "a given initrd is used as given" "$(<"$calls")"
+pass "an initrd passed to kernel-install is used as given"
+
+touch "$dracut_boot/initramfs-$version.img"
+run_dracut_plugin other remove "$version" /entry || fail "the dracut plugin removes an image"
+[[ ! -e $dracut_boot/initramfs-$version.img ]] || fail "the dracut plugin removes the image"
+pass "the dracut plugin removes the image with its kernel"
+
+run_dracut_plugin bls add "$version" /entry /vmlinuz || fail "another layout goes to Fedora's plugin"
+[[ $(<"$calls") == "fedora add $version /entry /vmlinuz" ]] || fail "another layout goes to Fedora's plugin" "$(<"$calls")"
+image_type=uki run_dracut_plugin other add "$version" /entry /vmlinuz || fail "a UKI goes to Fedora's plugin"
+[[ $(<"$calls") == "fedora add $version /entry /vmlinuz" ]] || fail "a UKI goes to Fedora's plugin" "$(<"$calls")"
+pass "other layouts and UKIs stay with Fedora's plugin"
+
+# The follow-up migration installs that plugin and finishes the kernel installs
+# the old one stopped.
+shipped_finish="$ROOT/migrations/1790587666.sh"
+for literal in 'limine_config=/etc/default/limine' 'dracut_plugin=/etc/kernel/install.d/50-dracut.install' \
+  'modules_dir=/usr/lib/modules' 'boot_dir=/boot' 'kernel_install_command=/usr/bin/kernel-install'; do
+  grep -Fxq "$literal" "$shipped_finish" || fail "the follow-up migration keeps $literal fixed"
+done
+pass "the follow-up migration keeps its privileged paths fixed"
+
+modules="$test_dir/modules"
+finish_boot="$test_dir/finish-boot"
+cat >"$test_dir/kernel-install" <<STUB
+#!/bin/bash
+printf 'kernel-install %s\n' "\$*" >>"$calls"
+STUB
+chmod +x "$test_dir/kernel-install"
+finish="$test_dir/finish.sh"
+sed -e "s|^limine_config=/etc/default/limine$|limine_config=$etc/default/limine|" \
+  -e "s|^dracut_plugin=/etc/kernel/install.d/50-dracut.install$|dracut_plugin=$etc/kernel/install.d/50-dracut.install|" \
+  -e "s|^modules_dir=/usr/lib/modules$|modules_dir=$modules|" \
+  -e "s|^boot_dir=/boot$|boot_dir=$finish_boot|" \
+  -e "s|^kernel_install_command=/usr/bin/kernel-install$|kernel_install_command=$test_dir/kernel-install|" \
+  "$shipped_finish" >"$finish"
+
+reset_machine
+rm -rf "$modules" "$finish_boot"
+mkdir -p "$modules/7.2.0/" "$modules/7.2.6/" "$modules/7.2.4/" "$finish_boot"
+touch "$modules/7.2.0/vmlinuz" "$modules/7.2.6/vmlinuz" "$finish_boot/initramfs-7.2.0.img"
+OMARCHY_PATH="$ROOT" PATH="$test_dir/bin:$PATH" bash -euo pipefail "$finish" >"$test_dir/output" 2>&1 ||
+  fail "the follow-up migration runs" "$(<"$test_dir/output")"
+cmp -s "$dracut_plugin" "$etc/kernel/install.d/50-dracut.install" &&
+  [[ $(stat -c %a "$etc/kernel/install.d/50-dracut.install") == 755 ]] || fail "the follow-up migration installs the dracut plugin"
+[[ $(grep '^kernel-install' "$calls") == "kernel-install add 7.2.6 $modules/7.2.6/vmlinuz" ]] ||
+  fail "only kernels missing their image are installed again" "$(<"$calls")"
+pass "the follow-up migration installs the plugin and finishes only unfinished kernels"
+
+reset_machine
+rm "$etc/default/limine"
+OMARCHY_PATH="$ROOT" PATH="$test_dir/bin:$PATH" bash -euo pipefail "$finish" >"$test_dir/output" 2>&1 ||
+  fail "the follow-up migration skips a machine without Limine" "$(<"$test_dir/output")"
+[[ ! -s $calls && ! -e $etc/kernel ]] || fail "the follow-up migration leaves a machine without Limine alone" "$(<"$calls")"
+pass "the follow-up migration leaves a machine without Limine alone"
