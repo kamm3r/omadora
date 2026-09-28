@@ -114,7 +114,12 @@ Per project decision the Limine stack is kept, not replaced with GRUB:
   reference working set); the installer verifies each one exists.
 - `install/fedora/limine-mkinitcpio` is the vendored dracut-backed
   implementation of the Arch `limine-mkinitcpio-hook` helper (`dracut -f
-  --regenerate-all`, then re-register kernels with `limine-entry-tool`), and
+  /boot/initramfs-<kver>.img <kver>` for each installed kernel, then
+  re-register it with `limine-entry-tool`). The output path is explicit
+  because dracut otherwise writes into `<ESP>/<machine-id>/<kver>/` once
+  `limine-entry-tool` has created the machine-id directory, and that
+  per-version directory does not exist. `install/fedora/limine-update`
+  re-deploys the bootloader binaries (like
   `install/fedora/limine-update` re-deploys the bootloader binaries (like
   Arch's helper of the same name), so all existing callers work unchanged.
   Both install to `/usr/local/bin` via `install/fedora/bootloader.sh`.

@@ -5,14 +5,17 @@
 # callers (hibernation setup, hardware quirks, plymouth theming) work unchanged.
 set -euo pipefail
 
-dracut -f --regenerate-all
-
+# Name each image instead of letting dracut choose. Without an output path,
+# dracut writes to <ESP>/<machine-id>/<kver>/initrd whenever the machine-id
+# directory exists, and limine-entry-tool creates exactly that directory for
+# its kernel copies, so every run after the first fails on a missing
+# directory.
 shopt -s nullglob
 for kdir in /usr/lib/modules/*/; do
   kver="$(basename "$kdir")"
   [[ -f $kdir/vmlinuz ]] || continue
   initrd="/boot/initramfs-$kver.img"
-  [[ -f $initrd ]] || continue
+  dracut -f "$initrd" "$kver"
   echo "Registering kernel-$kver"
   limine-entry-tool --add-kernel "kernel-$kver" "$initrd" "${kdir}vmlinuz" --quiet
 done
