@@ -60,7 +60,6 @@ lsp-plugins-lv2
 #   t2fanrd (T2 MacBook; community COPR or omit)
 # macbook12-spi-driver-dkms (AUR-only)
 # tuxedo-drivers-nocompatcheck-dkms (vendor repo, not Fedora)
-# yt6801-dkms (very new HW; check in-kernel support first)
 # qmk-hid (Framework 16 tool; fetch upstream binary)
 # yay-debug (Arch-only)
 # webp-pixbuf-loader (retired in Fedora)

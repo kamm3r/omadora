@@ -161,7 +161,9 @@ Per project decision the Limine stack is kept, not replaced with GRUB:
   (`1789325478.sh` moving to `linux-omarchy`, `1789444024.sh` adding its
   headers) are not carried, and neither is the claim that the base install
   guarantees matching headers: akmod and DKMS installers add `kernel-devel`
-  themselves.
+  themselves. Nor is `1788279117.sh`, which retires the vendor `yt6801-dkms`
+  module in favor of the kernel's `dwmac-motorcomm` driver: that DKMS package
+  never had a Fedora RPM, so Fedora machines already use the kernel driver.
 - `bin/omarchy-update-firmware` stages the fwupd EFI binary at
   `/boot/EFI/omarchy/fwupdx64.efi` instead of `/boot/EFI/arch/`.
 
