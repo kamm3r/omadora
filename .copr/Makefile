@@ -18,7 +18,7 @@ srpm:
 	git() { command git -c safe.directory='$(top)' "$$@"; }; \
 	version=$$(sed -E 's/[.-]([a-z])/~\1/' '$(top)/version'); \
 	commits=$$(git -C '$(top)' rev-list --count HEAD); \
-	sha=$$(git -C '$(top)' rev-parse --short HEAD); \
+	sha=$$(git -C '$(top)' rev-parse --short=10 HEAD); \
 	release=0.$$commits.git$$sha; \
 	name=$$(basename '$(spec)' .spec); \
 	mkdir -p '$(outdir)'; \

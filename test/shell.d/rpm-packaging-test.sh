@@ -108,7 +108,7 @@ git -C "$ROOT" rev-parse HEAD >/dev/null 2>&1 || { skip "not a git checkout; ski
 make -s -f "$ROOT/.copr/Makefile" srpm outdir="$test_tmp/srpm" spec=packaging/rpm/omarchy-settings/omarchy-settings.spec >"$test_tmp/srpm.log" 2>&1 ||
   fail "the COPR Makefile builds a source RPM" "$(<"$test_tmp/srpm.log")"
 srpm=$(ls "$test_tmp"/srpm/*.src.rpm)
-[[ $(rpm -qp --qf '%{VERSION}-%{RELEASE}' "$srpm") == "$version-0.$(git -C "$ROOT" rev-list --count HEAD).git$(git -C "$ROOT" rev-parse --short HEAD)"* ]] ||
+[[ $(rpm -qp --qf '%{VERSION}-%{RELEASE}' "$srpm") == "$version-0.$(git -C "$ROOT" rev-list --count HEAD).git$(git -C "$ROOT" rev-parse --short=10 HEAD)"* ]] ||
   fail "the COPR source RPM records its version and release" "$(rpm -qp --qf '%{VERSION}-%{RELEASE}' "$srpm")"
 head -2 "$test_tmp/srpm/omarchy-settings.spec" | grep -q '^%global omarchy_release 0\.' || fail "the COPR spec carries its release"
 pass "the COPR source RPM carries its version and a per-commit release"
