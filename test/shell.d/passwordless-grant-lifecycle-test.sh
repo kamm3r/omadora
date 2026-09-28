@@ -44,9 +44,11 @@ pass "legacy cleanup removes generated rules for any account and quarantines eve
 
 # Run the actual migration queue for separate temporary homes. Sudo only calls
 # the mapped helper and can be refused without requesting host authorization.
-mkdir -p "$test_tmp/source/migrations"
-sed "s|/usr/bin/omarchy-sudo-passwordless|$test_tmp/omarchy-sudo-passwordless|g" \
-  "$ROOT/migrations/1788163635.sh" >"$test_tmp/source/migrations/1788163635.sh"
+# The migration reaches the helper through $OMARCHY_PATH, as the package's bin
+# links and a dev checkout provide it, so the mapped copy stands in there.
+mkdir -p "$test_tmp/source/migrations" "$test_tmp/source/bin"
+cp "$ROOT/migrations/1788163635.sh" "$test_tmp/source/migrations/"
+ln -s "$test_tmp/omarchy-sudo-passwordless" "$test_tmp/source/bin/omarchy-sudo-passwordless"
 printf 'echo "later migration ran"\n' >"$test_tmp/source/migrations/1788163636.sh"
 run_migrations() {
   TEST_MIGRATION=1 OMARCHY_PATH="$test_tmp/source" OMARCHY_MIGRATION_STATE="$test_tmp/$1" \
@@ -88,22 +90,6 @@ pass "migration completion is machine-wide, retryable, and needs no sudo for lat
   rm "$marker"
 )
 pass "migration checks marker ownership and rejects symlinks"
-
-# Checkout-only installs have no packaged helper, so the migration falls back
-# to the checkout's copy and legacy grants are still removed.
-sed "s|/usr/bin/omarchy-sudo-passwordless|$test_tmp/absent/omarchy-sudo-passwordless|g" \
-  "$ROOT/migrations/1788163635.sh" >"$test_tmp/source/migrations/1788163635.sh"
-mkdir -p "$test_tmp/source/bin"
-ln -s "$test_tmp/omarchy-sudo-passwordless" "$test_tmp/source/bin/omarchy-sudo-passwordless"
-(
-  source "$library"
-  rm -f "$marker" "$(rule_file 1000)"
-  printf 'audituser ALL=(ALL) NOPASSWD: ALL\n' >"$(rule_file 1000)"
-  run_migrations third
-  [[ -f $marker && -f $test_tmp/third/1788163636.sh ]]
-  ! compgen -G "$test_tmp/etc/sudoers.d/99-omarchy-nopasswd-*"
-)
-pass "migration falls back to the checkout helper when no packaged copy exists"
 
 # The omarchy-settings RPM calls these helper actions from %pre, %preun, and
 # %posttrans, so the whole package contract lives in the helper. As root, run

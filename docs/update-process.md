@@ -57,7 +57,7 @@ privileged work should invoke the appropriate helper or privilege prompt.
 Migrations must be idempotent; if one user already applied a machine-wide repair,
 the migration should no-op for other users.
 
-When invoked by the update, migrations inherit its cold credential state and no-update sudo wrapper, so a migration's `sudo` authorizes that one command without publishing a reusable timestamp. Running `omarchy-migrate` on its own does not establish that boundary. Historical migrations remain strictly ordered.
+When invoked by the update, migrations share its single sudo authorization. Running `omarchy-migrate` on its own does not establish that authorization. Historical migrations remain strictly ordered.
 
 For watchers and diagnostics, `omarchy-migrate --pending` prints pending
 migration names and exits `0` when any are pending. When no migrations are
@@ -101,7 +101,7 @@ High-level flow:
 omarchy-update
   ├─ require a bash -p startup, strip shell-startup environment, and check
   │  that OMARCHY_PATH is this command's source root
-  ├─ revoke the sudo timestamp and put the no-update sudo wrapper first on a
+  ├─ revoke the sudo timestamp, validate the no-update sudo wrapper, and set a
   │  fixed PATH
   ├─ ensure transcript logging through script(1) → /tmp/omarchy-update.log
   ├─ omarchy-update-lock
@@ -109,6 +109,7 @@ omarchy-update
   ├─ omarchy-update-requires-free-space
   │    └─ abort below the configured free-space threshold on /
   ├─ confirm unless -y
+  ├─ authorize sudo once, then keep the timestamp fresh in the background
   ├─ omarchy-update-pkg-prune
   │    └─ clean downloaded dnf packages, deliberately before the snapshot
   │       since the cache lives on the snapshotted subvolume
@@ -118,16 +119,15 @@ omarchy-update
   ├─ omarchy-update-stay-awake start
   ├─ run system-package updates, bracketed by
   │  omarchy-hyprland-reload-guard pause/resume
-  ├─ invalidate sudo, then run migrations; they and all later privileged work
-  │  keep no-update authentication
+  ├─ run migrations
   ├─ run orphan review and log analysis
   ├─ omarchy-update-status
   │    └─ refresh or clear the shell update indicator
   ├─ omarchy-update-restart --services-only
   │    └─ restart marked services and the shell
-  ├─ invalidate sudo, update per-user Flatpaks (no sudo), invalidate again
-  ├─ run the post-update hook, invalidate again, then update mise tools and
-  │  invalidate once more
+  ├─ run the post-update hook, then update mise tools
+  ├─ stop the keepalive and invalidate sudo, then update per-user Flatpaks
+  │  (no sudo) behind the no-update wrapper, and invalidate again
   ├─ omarchy-update-stay-awake stop
   │    └─ release the sleep inhibitor and restore shell idle state, if changed
   └─ omarchy-update-restart --reboot-only
@@ -136,16 +136,16 @@ omarchy-update
 
 Important behavior:
 
-- Protected update entrypoints (`omarchy-update`, `omarchy-refresh-pacman`, `omarchy-channel-set`, and `omarchy-update-stay-awake`) require the session's canonical `OMARCHY_PATH` to match their own checkout, or the packaged `/usr/bin` entrypoint when `OMARCHY_PATH` is `/usr/share/omarchy`, before selecting commands or the sudo wrapper. This preserves intentionally trusted development checkouts while rejecting a command paired with a different source root. System phases use a fixed command search path (the wrapper directory, `$OMARCHY_PATH/bin`, then the system `bin`/`sbin` directories); the caller's PATH is restored behind the sudo wrapper only for hooks and mise.
+- Protected update entrypoints (`omarchy-update`, `omarchy-refresh-pacman`, `omarchy-channel-set`, and `omarchy-update-stay-awake`) require the session's canonical `OMARCHY_PATH` to match their own checkout, or the packaged `/usr/bin` entrypoint when `OMARCHY_PATH` is `/usr/share/omarchy`, before selecting commands or the sudo wrapper. This preserves intentionally trusted development checkouts while rejecting a command paired with a different source root. System phases use a fixed command search path (`$OMARCHY_PATH/bin`, then the system `bin`/`sbin` directories, with the wrapper directory first in `omarchy-refresh-pacman` and `omarchy-channel-set`); the caller's PATH is restored only for hooks and mise.
 - These mixed-trust entrypoints start Bash in privileged mode (`#!/bin/bash -p`), discard `BASH_ENV`, `ENV`, `SHELLOPTS`, `BASHOPTS`, `PS4`, `CDPATH`, `GLOBIGNORE`, and exported-function records before launching helpers, and reject an ordinary `bash path/to/command` invocation. Run them as executables (normally through the `omarchy` CLI); `/usr/bin/bash -p path/to/command` is the explicit interpreter form. This keeps shell startup injection from replacing the no-update sudo boundary.
-- Each protected entrypoint revokes the sudo timestamp (`sudo -k`) on entry and puts `default/omarchy/sudo-no-update/sudo` first on PATH. That wrapper execs `/usr/bin/sudo -N` (`--no-update`) for everything except the stand-alone timestamp and informational modes (`-k`, `-K`, `-h`, `-V`), so every `sudo` in the update — the dnf transaction through `omarchy-update-dnf`, migrations, service restarts, hooks — authorizes one command without publishing a reusable timestamp. If the installed sudo lacks `--no-update`, the entrypoint refuses to run rather than fall back to plain `sudo`.
+- Each protected entrypoint revokes the sudo timestamp (`sudo -k`) on entry and validates `default/omarchy/sudo-no-update/sudo`, a wrapper that execs `/usr/bin/sudo -N` (`--no-update`) for everything except the stand-alone timestamp and informational modes (`-k`, `-K`, `-h`, `-V`). `omarchy-refresh-pacman` and `omarchy-channel-set` keep it first on PATH, so each of their `sudo` calls authorizes one command without publishing a reusable timestamp. `omarchy update` shares one authorization instead (below) and puts the wrapper back only for its last step. If the installed sudo lacks `--no-update`, the entrypoint refuses to run rather than fall back to plain `sudo`.
 - In dev-link mode, `omarchy update` fast-forwards the active checkout from its configured upstream before changing system packages or running migrations.
-- Migrations remain in chronological order even though historical entries mix user-controlled code with later privileged repairs. Before entering that mixed-trust tail, Omarchy invalidates its timestamp again; the wrapper has covered the whole update, so neither the dnf transaction nor a later repair leaves a timestamp for a detached migration child to reuse. Upstream's AUR step has to route its build helper's own sudo through the wrapper; the Fedora equivalent, `omarchy-update-aur-pkgs` (historical name), runs `flatpak update --user` and needs no sudo, so there is nothing to route.
-- User-controlled post-update hooks and mise tools run only after every sudo-capable update stage: service restarts (`omarchy-update-restart --services-only`) come first, then the Flatpak step between two revocations, then the hook, another revocation, mise, and a final revocation. Omarchy invalidates its sudo timestamp before each boundary and on every exit; detached children therefore have no later reusable update authorization to wait for. Hooks and mise run with the caller's PATH behind the wrapper, so their own `sudo` calls are command-scoped as well.
+- The update asks for the sudo password once, right after confirmation. It first invalidates any existing timestamp so that prompt always belongs to this update, then a background keepalive refreshes the timestamp every minute so long downloads, migrations, hooks, and mise never outlast it. Everything except the Flatpak step shares that one authorization: package prune, snapshot, stay-awake, keyring, the dnf transaction through `omarchy-update-dnf`, migrations, orphan removal, service restarts, the post-update hook, and mise. Stay-awake sees `OMARCHY_UPDATE_SUDO_SESSION=1`, uses that authorization non-interactively whatever its stdin is, and leaves it to the update instead of revoking it. The authorization runs a command rather than `sudo -v`, so passwordless sudo still needs no prompt. Standalone commands that keep their own cold boundary, such as `omarchy-refresh-pacman`, still revoke if a post-update hook calls them.
+- Upstream runs AUR builds last because they execute third-party PKGBUILD code: the update stops the keepalive, invalidates the timestamp, and runs them behind the no-update wrapper. Omadora keeps that position and boundary for the Fedora equivalent, `omarchy-update-aur-pkgs` (historical name), which runs `flatpak update --user` and needs no sudo at all. The timestamp is invalidated again afterwards and on every exit.
 - This lifecycle controls authorization created by the protected workflow. `sudo -N` prevents cache updates but can use an existing valid credential, and `sudo -k` revokes the current session's timestamp. It does not isolate the account from unrelated concurrent authentication in another workflow.
-- Sleep inhibition authenticates before detaching (`sudo -N -b` from a terminal, `pkexec` without one), drops the held command back to the caller with `setpriv`, and closes both update lock descriptors before the persistent process starts. Cleanup accepts only caller-owned, mode-0600, single-link state and revalidates the recorded PID, process start time, owner, and random token immediately before every signal. The inhibitor covers the Flatpak step, hooks, and mise, and is released before the reboot prompt — releasing it needs no privilege, and a confirmed reboot could otherwise end the update before its EXIT trap clears the Stay Awake marker.
+- Sleep inhibition authenticates before detaching (`sudo -N -b` from a terminal, `pkexec` without one; inside an update it reuses the update's authorization with a non-interactive `sudo` and falls back to `pkexec` only if that authorization is gone), drops the held command back to the caller with `setpriv`, and closes both update lock descriptors before the persistent process starts. Cleanup accepts only caller-owned, mode-0600, single-link state and revalidates the recorded PID, process start time, owner, and random token immediately before every signal. The inhibitor covers hooks, mise, and the Flatpak step, and is released before the reboot prompt — releasing it needs no privilege, and a confirmed reboot could otherwise end the update before its EXIT trap clears the Stay Awake marker.
 - Channel switching (`omarchy-channel-set`) establishes the same boundary before dev link/unlink, refresh, and package operations. It keeps the wrapper first on PATH when changing source roots, carries the original user PATH into update hooks and mise through `OMARCHY_UPDATE_USER_PATH`, and checks after each package transaction — the `omarchy-refresh-pacman` upgrade and, once Omadora ships channel RPMs, the `dnf install` of the channel packages — that the wrapper still exists before any further privileged step, since a transaction can replace the running tree with a release that predates it. When it is gone, or the destination otherwise lacks it, the switch stops after the package switch with instructions to run that release's `omarchy update` from a fresh terminal, rather than letting a bare `sudo` or an updater that authenticates without `--no-update` publish a timestamp. Switching to `dev` checks the checkout for the wrapper, `omarchy-security-functions`, `omarchy-update`, and `omarchy-refresh-pacman` before linking and refuses a checkout that predates them. Failed and interrupted channel switches revoke on exit.
-- `-y` exports `OMARCHY_UPDATE_UNATTENDED=1` and suppresses Omarchy confirmation prompts. Interactive steps report and skip instead of blocking: the conflict handoff and the reboot prompt check `OMARCHY_UPDATE_UNATTENDED`, while orphan review keys only off having a terminal, so under `-y` in a terminal it still asks. Privileged commands still require sudo authorization, and command-scoped authentication can prompt separately for each command.
+- `-y` exports `OMARCHY_UPDATE_UNATTENDED=1` and suppresses Omarchy confirmation prompts. Interactive steps report and skip instead of blocking: the conflict handoff and the reboot prompt check `OMARCHY_UPDATE_UNATTENDED`, while orphan review keys only off having a terminal, so under `-y` in a terminal it still asks. Privileged commands still require the one sudo authorization; the Flatpak step needs none.
 - The free-space requirement uses a 10 GiB threshold and stops the update before
   confirmation when it is not met. If free space cannot be determined, the
   check is silently skipped. Set `OMARCHY_UPDATE_FORCE=1` to bypass the check.

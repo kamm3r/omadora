@@ -74,7 +74,9 @@ a readonly reference and is never modified.
   checks with `rpm` that the settings package owns it and carries those three
   scriptlets (see `docs/passwordless-sudo.md`). Checkout-only installs have no
   packaged helper, so the command refuses there; the legacy-grant migration
-  `1788163635.sh` falls back to the checkout's helper for its one-shot cleanup.
+  `1788163635.sh` still runs its one-shot cleanup, through the helper at
+  `$OMARCHY_PATH/bin` as upstream does, which is the checkout's copy under a
+  dev link.
 - Channels (`stable/rc/edge`) have no RPM repos yet, so `omarchy-channel-set`
   only switches the dev-checkout state and refreshes metadata;
   `omarchy-version-channel` reports `unknown` until omadora RPM repos ship.
