@@ -43,6 +43,7 @@ Requires:       python3-libdnf5
 Requires:       gum
 Requires:       jq
 Requires:       util-linux
+Requires:       util-linux-script
 
 %if "%{?dev_suffix}" != ""
 Provides:       omarchy = %{version}-%{release}

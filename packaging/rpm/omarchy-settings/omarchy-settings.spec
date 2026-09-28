@@ -44,6 +44,7 @@ Requires:       bash
 Requires:       sudo
 Requires:       systemd
 Requires:       gum
+Requires:       plymouth-plugin-script
 Requires(pre):  coreutils
 Requires(post): coreutils
 Requires(post): fontconfig

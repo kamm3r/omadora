@@ -213,6 +213,14 @@ Per project decision the Limine stack is kept, not replaced with GRUB:
   Fedora's `fzf` ships only `/usr/share/fzf/shell/key-bindings.bash` and no
   completion script, so the Arch paths left Ctrl+R, Ctrl+T, and `**`
   completion unset.
+- Split subpackages: Arch's `libxkbcommon`, `plymouth`, and `util-linux`
+  carry `xkbcli`, the Plymouth script plugin, and `script(1)`, which Fedora
+  ships as `libxkbcommon-utils`, `plymouth-plugin-script`, and
+  `util-linux-script`. All three are in the base package list, migration
+  `1790573551.sh` adds them to existing installs, and the RPMs require the
+  two they depend on: `omarchy` needs `util-linux-script` for the update
+  transcript and `omarchy-settings` needs `plymouth-plugin-script` for its
+  boot theme.
 
 ## Packaging: RPM specs and COPR
 

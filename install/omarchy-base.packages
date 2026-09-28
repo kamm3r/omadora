@@ -93,6 +93,7 @@ kdenlive
 golang-github-jesseduffield-lazygit
 less
 libsecret
+libxkbcommon-utils
 vips
 libyaml
 libreoffice
@@ -118,6 +119,7 @@ pamixer
 pinta
 plocate
 plymouth
+plymouth-plugin-script
 libpq
 power-profiles-daemon
 python3-gobject
