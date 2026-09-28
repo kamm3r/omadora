@@ -21,6 +21,7 @@ hype
 monologue
 omacalc
 omacut
+omasnap
 omawrite
 owe
 owe-lockfeed
@@ -29,7 +30,6 @@ ttfx
 # Omarchy tools awaiting a Fedora RPM (see FEDORA.md).
 #cliamp
 #herdr
-#omasnap
 #omarchy-nvim
 #tensaku
 alsa-utils
@@ -175,7 +175,7 @@ zoxide
 # obsidian (no RPM; Flathub md.obsidian.Obsidian)
 # pacman-contrib (pacman tooling; use dnf clean/autoremove)
 # qt6-multimedia, qt6-multimedia-ffmpeg (superseded by OWE; shell is image-only, video via OWE lock feed)
-# tzupdate (no RPM; pipx install tzupdate; Fedora uses chrony)
+# tzupdate (available as an optional Omadora COPR RPM; Fedora uses chrony)
 # ufw, ufw-docker (replaced by firewalld; see install/config/firewall.sh)
 # webp-pixbuf-loader (retired; WebP is in gdk-pixbuf2)
 # yay (Arch-only AUR helper; dnf + COPR replace it)
