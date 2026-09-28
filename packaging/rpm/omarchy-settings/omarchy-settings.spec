@@ -39,6 +39,7 @@ License:        MIT
 URL:            https://github.com/kamm3r/omadora
 Source0:        omarchy-%{omarchy_version}.tar.gz
 BuildArch:      noarch
+BuildRequires:  systemd-rpm-macros
 
 Requires:       bash
 Requires:       sudo
