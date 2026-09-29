@@ -17,6 +17,7 @@
 
 # Omarchy tools with Fedora RPMs in kammer/omadora.
 aether
+cliamp
 hype
 monologue
 omacalc
@@ -28,7 +29,6 @@ owe-lockfeed
 tobi-try
 ttfx
 # Omarchy tools awaiting a Fedora RPM (see FEDORA.md).
-#cliamp
 #herdr
 #omarchy-nvim
 #tensaku

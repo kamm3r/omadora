@@ -222,9 +222,9 @@ Per project decision the Limine stack is kept, not replaced with GRUB:
   `org.libretro.RetroArch`), 32-bit drivers via `.i686` multilib
   (`mesa-vulkan-drivers.i686`, `xorg-x11-drv-nvidia-libs.i686`).
 - Flatpak fills gaps with no RPM, always `--user`: Obsidian (`md.obsidian.Obsidian`), Moonlight (`com.moonlight_stream.Moonlight`), Zen browser (`app.zen_browser.zen`, via `omarchy install browser zen`), Sunshine fallback (`dev.lizardbyte.app.Sunshine`), LM Studio (`ai.lmstudio.lm-studio`), and the full RetroArch core set (`org.libretro.RetroArch`). The Flathub user remote is added by `install/fedora/repos.sh` as the login user. `lazydocker` installs from upstream.
-- Omarchy's tools `aether`, `hype`, `monologue`, `omacalc`, `omacut`, `omasnap`, `omawrite`, `owe`, `owe-lockfeed`, `tobi-try`, and `ttfx` ship from `kammer/omadora` COPR and are in the base package list. The `omasnap` migration installs it on existing Fedora systems.
+- Omarchy's tools `aether`, `cliamp`, `hype`, `monologue`, `omacalc`, `omacut`, `omasnap`, `omawrite`, `owe`, `owe-lockfeed`, `tobi-try`, and `ttfx` ship from `kammer/omadora` COPR and are in the base package list. The `omasnap` and `cliamp` migrations install them on existing Fedora systems.
 - Optional Omadora COPR RPMs include `omarchy-audio-tuner`, `omazed`, `omarchy-emacs`, `omarchy-fish`, `omarchy-zsh`, `tensaku`, `ttf-ia-writer`, `python-terminaltexteffects`, `python-sounddevice`, `tzupdate`, and `wayfreeze`. The base package list already includes `xdg-terminal-exec`, which also has an Omadora COPR build.
-- `cliamp`, `herdr`, and `omarchy-nvim` remain commented in the base package list until their Fedora RPMs ship. Their install migrations run only once dnf can find the package. The separate `omadora-pkg` repository tracks the upstream package inventory and Fedora ports.
+- `herdr` and `omarchy-nvim` remain commented in the base package list until their Fedora RPMs ship. Their install migrations run only once dnf can find the package. The separate `omadora-pkg` repository tracks the upstream package inventory and Fedora ports.
 - fzf shell integration: `default/bash/init` loads it with
   `eval "$(fzf --bash)"` instead of sourcing upstream's Arch paths
   (`/usr/share/fzf/completion.bash`, `/usr/share/fzf/key-bindings.bash`).
