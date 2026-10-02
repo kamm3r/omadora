@@ -195,6 +195,9 @@ Per project decision the Limine stack is kept, not replaced with GRUB:
   demand, Firefox/Chromium from Fedora, Zen via Flathub
   (`app.zen_browser.zen`). Brave Origin (an Omarchy AUR rebuild) has no
   equivalent; its menu entries fail gracefully with an explanation.
+  `omarchy-cmd-browser-handoff` recognizes the Fedora binaries too
+  (`chromium-browser`, Brave's `brave-browser` and `brave-browser-stable`), so
+  launches reach the running browser directly as they do upstream.
 - Editors: VSCode (Microsoft repo), Cursor (`cursor` from Terra), Zed (`zed`
   from Terra; `omazed` theme helper from Omadora COPR), Sublime Text (official
   Sublime repo via `omarchy-install-editor-sublime`), stock `emacs`,
