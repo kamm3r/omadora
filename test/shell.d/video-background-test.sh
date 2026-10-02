@@ -273,9 +273,10 @@ timeout_rows=$(PATH="$test_tmp/bin:$PATH" XDG_CACHE_HOME="$timeout_cache" \
 timeout_marker=$(find "$timeout_cache/omarchy/image-selector" -maxdepth 1 -type f -name '*.failed' -print -quit)
 [[ -z $timeout_marker ]] || fail "a timed out video is left to retry rather than remembered as failed"
 
-grep -qx '#owe' "$ROOT/install/omarchy-base.packages" || fail "OWE is a base package (commented until RPM ships)"
-grep -qx '#owe-lockfeed' "$ROOT/install/omarchy-base.packages" || fail "the OWE lock feed module is a base package (commented until RPM ships)"
-if grep -qx 'qt6-multimedia' "$ROOT/install/omarchy-base.packages"; then
+grep -qx 'owe' "$ROOT/install/omarchy-base.packages" || fail "OWE is a base package"
+grep -qx 'owe-lockfeed' "$ROOT/install/omarchy-base.packages" || fail "the OWE lock feed module is a base package"
+# Qt Multimedia ships for building apps; the shell itself plays video through OWE.
+if grep -rqs 'import QtMultimedia' "$ROOT/shell"; then
   fail "Qt Multimedia is no longer needed by the shell"
 fi
 if grep -qx 'qt6-qtmultimedia' "$ROOT/install/omarchy-base.packages"; then
@@ -302,6 +303,10 @@ NEXT_THEME_PATH="$transition_home/.local/state/omarchy/current/next-theme"
 CURRENT_BACKGROUND_LINK="$transition_home/.local/state/omarchy/current/background"
 BACKGROUND_TRANSITION_CACHE="$transition_home/.cache/omarchy/background-transitions"
 THEME_NAME="video-test"
+PREVIOUS_THEME_NAME="$THEME_NAME"
+# The script's own top-level defaults: no background was prepared ahead.
+PREPARED_BACKGROUND=""
+PREPARED_BACKGROUND_SNAPSHOT=""
 HOME="$transition_home"
 mkdir -p "$CURRENT_THEME_PATH/backgrounds" "$NEXT_THEME_PATH/backgrounds" "$HOME/.config/omarchy/backgrounds/$THEME_NAME"
 printf 'old image\n' >"$CURRENT_THEME_PATH/backgrounds/old.png"
