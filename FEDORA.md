@@ -214,6 +214,12 @@ Per project decision the Limine stack is kept, not replaced with GRUB:
   until an omadora COPR ships them. Choosing Hermes as the default agent
   installs Hermes Desktop the same way. The Hermes migrations only retire the
   old mise build and never install the app, so they run cleanly without it.
+- App building: the `omarchy-app` agent skill packages a new app as an RPM
+  (`rpm/<name>.spec`, built by `rpmbuild` and installed with `dnf`, with a
+  timestamp release so every run upgrades) instead of a PKGBUILD and
+  `makepkg -fsi`. Its build set is `gcc-c++`, `make`, the Qt `-devel`
+  packages (`qmake6` comes with `qt6-qtbase-devel`), and `ffmpeg-free`, which
+  migration `1790702362.sh` adds only when no `ffmpeg` is installed.
 - Development: Symfony CLI via its upstream release RPM (`SYMFONY_VERSION`,
   default 5.20.0, provides `symfony-cli`). Dropbox has no Fedora path yet
   (`dropbox`/`nautilus-dropbox`/`dropbox-cli` are all unpackaged).

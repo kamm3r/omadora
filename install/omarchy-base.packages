@@ -166,6 +166,18 @@ yt-dlp
 zbar
 zoxide
 
+# Building Omarchy-style apps (the omarchy-app agent skill): C++ and Qt Quick
+# with qmake6. Arch: base-devel ffmpeg qt6-base qt6-declarative qt6-multimedia
+# qt6-svg qt6-wayland.
+ffmpeg-free
+gcc-c++
+make
+qt6-qtbase-devel
+qt6-qtdeclarative-devel
+qt6-qtmultimedia-devel
+qt6-qtsvg-devel
+qt6-qtwayland-devel
+
 # Dropped from the Arch list (reason in parens):
 # asdcontrol (Apple Silicon only, N/A on x86_64 Fedora)
 # expac (pacman tooling; use dnf repoquery)
