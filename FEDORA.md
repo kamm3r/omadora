@@ -254,11 +254,13 @@ Per project decision the Limine stack is kept, not replaced with GRUB:
 ## Packaging: RPM specs and COPR
 
 - Upstream builds its two Arch packages from PKGBUILDs in a separate
-  `omarchy-pkgs` repository. Omadora keeps RPM specs in this repository,
-  `packaging/rpm/omarchy{,-settings}/`, and builds them on COPR with the
-  make-srpm method (`.copr/Makefile`); `packaging/README.md` has the one-time
-  COPR setup. Versions follow `version` with the pre-release after a tilde
-  (`4.0.0~alpha`), and COPR releases are `0.<commit count>.git<sha>`.
+  `omarchy-pkgs` repository. Omadora likewise keeps its RPM specs out of this
+  tree, in [omadora-pkg](https://github.com/kamm3r/omadora-pkg) under
+  `packaging/rpm/omarchy{,-settings}/`, which builds them on the
+  kammer/omadora COPR from the Omadora commit pinned in its
+  `omadora-revision`; its `packaging/README.md` covers publishing. Versions
+  follow `version` with the pre-release after a tilde (`4.0.0~alpha`), and
+  COPR releases are `0.<commit count>.git<sha>` of the pinned commit.
 - The layout follows `docs/file-layout.md` with Fedora changes: no ALPM hooks
   or pacman trees, no `mkinitcpio.conf.d`, no `nsswitch.conf` override (the
   settings `%post` enables authselect's `with-mdns4` instead),
@@ -266,8 +268,9 @@ Per project decision the Limine stack is kept, not replaced with GRUB:
   `/usr/share/wayland-sessions`, and the passwordless-sudo helper and
   `omarchy-security-functions` ship with `omarchy-settings` together with the
   `%pre`/`%preun`/`%posttrans` scriptlets the helper checks for.
-- `omarchy dev pkg-test` builds the specs from the checkout (`-dev` variants
-  via `dev_suffix`), and `test/shell.d/rpm-packaging-test.sh` builds both
+- `omarchy dev pkg-test` builds those specs, read from the `omadora-pkg`
+  checkout beside this one, against this checkout (`-dev` variants via
+  `dev_suffix`); omadora-pkg's `test/core-packaging-test.sh` builds both
   packages and checks their contents and scriptlets.
 
 ## Install order on Fedora

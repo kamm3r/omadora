@@ -28,7 +28,8 @@ Examples:
 The release of the built package is tagged 'dev.<short-sha>[.dirty]' so
 'rpm -q' makes it obvious where the installed version came from.
 
-Specs are read from \${OMARCHY_SPECS_DIR:-<checkout>/packaging/rpm}/<package>/<package>.spec;
+Specs are read from \${OMARCHY_SPECS_DIR:-<checkout>/../omadora-pkg/packaging/rpm}/<package>/<package>.spec,
+the omadora-pkg checkout beside this one;
 a -dev package builds its release spec with dev_suffix=-dev.
 USAGE
   exit 0
@@ -56,9 +57,10 @@ else
   CHECKOUT="${2:-$OMARCHY_PATH}"
   RPMBUILD_ARGS=("${@:3}")
 fi
-# The specs live in the checkout. A -dev package is the same spec built with
-# dev_suffix, which renames it and makes it replace the release package.
-SPECS_ROOT="${OMARCHY_SPECS_DIR:-$CHECKOUT/packaging/rpm}"
+# The specs live in omadora-pkg, kept beside the source checkout. A -dev
+# package is the same spec built with dev_suffix, which renames it and makes it
+# replace the release package.
+SPECS_ROOT="${OMARCHY_SPECS_DIR:-$CHECKOUT/../omadora-pkg/packaging/rpm}"
 
 spec_path() {
   local base=${1%-dev}

@@ -5,8 +5,9 @@ system.
 
 ## Mental model
 
-Two RPM packages are built from this one repo, from the specs in
-`packaging/rpm/` (see `packaging/README.md` for the COPR build):
+Two RPM packages are built from this one repo, from the specs in the
+separate [omadora-pkg](https://github.com/kamm3r/omadora-pkg) repository,
+under `packaging/rpm/` (its `packaging/README.md` covers the COPR build):
 
 - **`omarchy`** — runtime binaries (`bin/`, including `bin/omarchy-dev-*`),
   install/finalize scripts (`install/`), migrations, themes, and the
