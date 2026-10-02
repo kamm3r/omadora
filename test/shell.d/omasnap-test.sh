@@ -7,10 +7,8 @@ source "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/base-test.sh"
 packages="$ROOT/install/omarchy-base.packages"
 migration="$ROOT/migrations/1788129995.sh"
 
-# Fedora port: omasnap has no RPM yet (see commented #omasnap in base.packages
-# until an omadora COPR ships it), so fresh installs cannot include it active.
-# Assert the intent is recorded rather than the package being active.
-grep -qxF '#omasnap' "$packages" || fail "fresh installs track Omasnap (commented until RPM ships)"
+# Omasnap ships from the kammer/omadora COPR.
+grep -qxF omasnap "$packages" || fail "fresh installs include Omasnap"
 ! grep -qxF tensaku "$packages" || fail "fresh installs no longer include Tensaku"
 ! grep -qxF satty "$packages" || fail "fresh installs no longer include Satty"
 pass "fresh installs use Omasnap as the screenshot tool"

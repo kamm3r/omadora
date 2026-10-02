@@ -38,9 +38,11 @@ exit 1
 SH
 chmod +x "$test_dir/bin/"*
 
+# The XDG directories are cleared so a session's own XDG_CACHE_HOME cannot
+# point the migrations at the real home the test is standing in for.
 run() {
   : >"$CALL_LOG"
-  env HOME="$test_dir/home" OMARCHY_PATH="$ROOT" PATH="$test_dir/bin:$ROOT/bin:$PATH" "$@" \
+  env -u XDG_CACHE_HOME -u XDG_CONFIG_HOME -u XDG_DATA_HOME -u XDG_STATE_HOME HOME="$test_dir/home" OMARCHY_PATH="$ROOT" PATH="$test_dir/bin:$ROOT/bin:$PATH" "$@" \
     bash -euo pipefail "$migration" >"$test_dir/output" 2>&1
 }
 
