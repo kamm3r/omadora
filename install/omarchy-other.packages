@@ -56,6 +56,7 @@ lsp-plugins-lv2
 # vulkan-asahi (aarch64/Asahi only; Fedora Asahi remix covers it)
 # linux-firmware-marvell (bundled inside Fedora's linux-firmware)
 # dell-xps-touchpad-haptics, dell-xps13-sidecar-amps (Omarchy/AUR-specific)
+# asus-proart-p14-speaker-firmware (aarch64 ProArt P14; no Fedora x86_64 RPM)
 # apple-bcm-firmware, apple-t2-audio-config, linux-t2, linux-t2-headers,
 #   t2fanrd (T2 MacBook; community COPR or omit)
 # macbook12-spi-driver-dkms (AUR-only)

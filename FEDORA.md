@@ -5,6 +5,8 @@ Command names, `$OMARCHY_PATH`, config layouts, themes, and the Quickshell
 desktop are unchanged; only the OS substrate was swapped. The Arch upstream is
 a readonly reference and is never modified.
 
+- The latest sync adds `Super + Shift + S` for screenshots and moves Google Maps to `Super + Shift + Alt + S`, with matching manual updates. The optional `asus-proart-p14-speaker-firmware` package remains deferred: it targets the aarch64 ProArt P14 H7407BA, while the current Omadora COPR target is Fedora 44 x86_64 (see `omadora-pkg/catalog.tsv`).
+
 ## Package management: dnf5 instead of pacman
 
 - `bin/omarchy-pkg-add/drop/present/missing/install/remove` keep their CLI
