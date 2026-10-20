@@ -120,14 +120,15 @@ omarchy-update
   ├─ run system-package updates, bracketed by
   │  omarchy-hyprland-reload-guard pause/resume
   ├─ run migrations
-  ├─ run orphan review and log analysis
-  ├─ omarchy-update-status
-  │    └─ refresh or clear the shell update indicator
+  ├─ automatically remove orphan packages and run log analysis
+  ├─ clear the shell update indicator after the completed upgrade
   ├─ omarchy-update-restart --services-only
   │    └─ restart marked services and the shell
   ├─ run the post-update hook, then update mise tools
   ├─ stop the keepalive and invalidate sudo, then update per-user Flatpaks
   │  (no sudo) behind the no-update wrapper, and invalidate again
+  ├─ omarchy-update-boot, with no-update authentication, and invalidate again
+  │    └─ verify boot files where a platform boot package provides the operation
   ├─ omarchy-update-stay-awake stop
   │    └─ release the sleep inhibitor and restore shell idle state, if changed
   └─ omarchy-update-restart --reboot-only
@@ -145,7 +146,7 @@ Important behavior:
 - This lifecycle controls authorization created by the protected workflow. `sudo -N` prevents cache updates but can use an existing valid credential, and `sudo -k` revokes the current session's timestamp. It does not isolate the account from unrelated concurrent authentication in another workflow.
 - Sleep inhibition authenticates before detaching (`sudo -N -b` from a terminal, `pkexec` without one; inside an update it reuses the update's authorization with a non-interactive `sudo` and falls back to `pkexec` only if that authorization is gone), drops the held command back to the caller with `setpriv`, and closes both update lock descriptors before the persistent process starts. Cleanup accepts only caller-owned, mode-0600, single-link state and revalidates the recorded PID, process start time, owner, and random token immediately before every signal. The inhibitor covers hooks, mise, and the Flatpak step, and is released before the reboot prompt — releasing it needs no privilege, and a confirmed reboot could otherwise end the update before its EXIT trap clears the Stay Awake marker.
 - Channel switching (`omarchy-channel-set`) establishes the same boundary before dev link/unlink, refresh, and package operations. It keeps the wrapper first on PATH when changing source roots, carries the original user PATH into update hooks and mise through `OMARCHY_UPDATE_USER_PATH`, and checks after each package transaction — the `omarchy-refresh-pacman` upgrade and, once Omadora ships channel RPMs, the `dnf install` of the channel packages — that the wrapper still exists before any further privileged step, since a transaction can replace the running tree with a release that predates it. When it is gone, or the destination otherwise lacks it, the switch stops after the package switch with instructions to run that release's `omarchy update` from a fresh terminal, rather than letting a bare `sudo` or an updater that authenticates without `--no-update` publish a timestamp. Switching to `dev` checks the checkout for the wrapper, `omarchy-security-functions`, `omarchy-update`, and `omarchy-refresh-pacman` before linking and refuses a checkout that predates them. Failed and interrupted channel switches revoke on exit.
-- `-y` exports `OMARCHY_UPDATE_UNATTENDED=1` and suppresses Omarchy confirmation prompts. Interactive steps report and skip instead of blocking: the conflict handoff and the reboot prompt check `OMARCHY_UPDATE_UNATTENDED`, while orphan review keys only off having a terminal, so under `-y` in a terminal it still asks. Privileged commands still require the one sudo authorization; the Flatpak step needs none.
+- `-y` exports `OMARCHY_UPDATE_UNATTENDED=1` and suppresses Omarchy confirmation prompts. Interactive steps report and skip instead of blocking: the conflict handoff and the reboot prompt check `OMARCHY_UPDATE_UNATTENDED`. Orphan packages are automatically removed during every update. Privileged commands still require the one sudo authorization; the Flatpak step needs none.
 - The free-space requirement uses a 10 GiB threshold and stops the update before
   confirmation when it is not met. If free space cannot be determined, the
   check is silently skipped. Set `OMARCHY_UPDATE_FORCE=1` to bypass the check.
@@ -153,6 +154,7 @@ Important behavior:
   `omarchy-migrate` after dnf finishes.
 - A failure should leave enough output in `/tmp/omarchy-update.log` and the
   terminal transcript to debug.
+- The boot check is the [lifecycle dispatch](lifecycle-dispatch.md) operation `update-verify`, a no-op on platforms whose boot chain needs no handling of its own, x86 included: nothing runs and nothing asks for root. It is the last sudo-capable step, after AUR packages, so it also covers the initramfs rebuilds they trigger; since it follows third-party build code, it authenticates through the no-update wrapper like AUR does, which on a platform that implements it without passwordless sudo is one more prompt. When it fails, the update finishes its remaining steps, then exits non-zero without the reboot prompt: the update is not finished. A machine without its platform's boot package at all predates it: the update warns that its boot files were not verified and finishes. There is no check before the packages change: where `omarchy-hw-platform` can't tell the platform, the update installs its packages, and the update then fails verification, without the reboot prompt.
 
 ## Path 2: direct `sudo dnf upgrade` attempt
 
@@ -261,6 +263,32 @@ package.
 
 `omarchy-refresh-pacman` (historical name: on Fedora it only refreshes dnf metadata and upgrades, with no repo-config rewrite) runs the `pre-refresh-pacman` hook before its `dnf upgrade -y --refresh` transaction, so custom repositories and excludes the hook adds shape that transaction. The hook is user code: it runs cold, behind the no-update wrapper with the caller's original PATH, and the timestamp is revoked again before the transaction. Channel switching runs the hook once, during its refresh step, and not at all if the switch fails earlier (for example, a dev checkout that lacks the command-scoped wrapper).
 
+Every platform has its own pacman.conf and mirrorlist for each channel it
+offers (x86_64 stable, rc and edge; aarch64 edge alone, below), and a channel
+change or install finalization copies them into place whole, the same way on
+every platform (`install/helpers/pacman.sh`); a channel change backs up
+the old pair first.
+x86_64's are `default/pacman/pacman-<channel>.conf` and
+`mirrorlist-<channel>`; Snapdragon and other aarch64 machines use
+`default/pacman/aarch64/`, Omarchy's repository ahead of Arch Linux ARM's, as
+x86_64 puts it ahead of Arch's (migration 1791403252 reorders existing
+machines the same way, and a refresh can then move a package Omarchy also
+publishes to Omarchy's build, downgrading it if that build is older); Apple
+Silicon uses `default/pacman/aarch64-apple/`, which puts Omarchy and Asahi ALARM
+ahead of Arch Linux ARM. Omarchy publishes aarch64 packages on edge alone so
+far, and the `omarchy` and `omarchy-settings` packages there for stable and rc
+are the release line, which has no aarch64 support, so ARM platforms have edge
+templates only: switching an ARM machine to stable or rc would replace its
+runtime with one that cannot run it. Adding a stable or rc template once a
+release supports aarch64 is what opens that channel. A channel change refuses a
+channel without both files for the platform before anything changes. On aarch64,
+`omarchy-channel-set` refuses to link a dev checkout without
+`bin/omarchy-hw-platform` and `install/helpers/pacman.sh`, whose own refresh
+would write the x86_64 templates. `omarchy-reinstall-pkgs` resets to the
+platform's default channel (`omarchy_pacman_default_channel`: stable, or edge on
+aarch64) and installs its default packages; install finalization does the same
+when the install's channel has no templates for the platform.
+
 There is no version file at runtime. `omarchy-version` derives the version from
 `rpm -q` on whichever package is installed, or reports `dev (<hash>)` for a
 linked checkout, and `omarchy-version-channel` sniffs `/etc/yum.repos.d` to
@@ -277,7 +305,7 @@ scripts.
 | `omarchy-update` | Public user command. Adds transcript logging, confirmation, snapshot, and restart checks around the locked, sleep-inhibited update pipeline. | **Keep.** This is the blessed entry point and orchestrates the update pipeline. |
 | `omarchy-update-lock` | Hidden command wrapper that holds the per-user update lock while its child runs. | **Keep internal/hidden.** Isolates update concurrency and lock descriptor handling. |
 | `omarchy-update-stay-awake` | Hidden helper that starts or stops update-owned sleep and idle inhibition, restoring only the state it changed. | **Keep internal/hidden.** Keeps inhibitor ownership and cleanup together. |
-| `omarchy-update-status` | Hidden helper that refreshes or clears the shell update indicator after rechecking available updates. | **Keep internal/hidden.** Keeps shell status synchronization out of the main pipeline. |
+| `omarchy-update-status` | Hidden compatibility helper that clears the shell update indicator. `omarchy-update` clears it directly now; an update started by an older `omarchy-update` still calls this after its upgrade. | **Temporary.** Keep only for updates started before the change. |
 | `omarchy-update-confirm` | Gum confirmation copy for `omarchy update`. | **Question.** Could be inlined into `omarchy-update`; separate file only helps keep copy isolated. |
 | `omarchy-update-dev` | Fast-forwards the active dev-linked checkout from its configured upstream; no-ops for package-backed installs. | **Keep.** Runs before package updates so a checkout conflict stops the update before system mutation. |
 | `omarchy-update-keyring` | Ensures Fedora RPM signing keys are current before the main transaction. | **Keep, but review.** It reinstalls `fedora-gpg-keys`; acceptable for this special case but should remain tightly scoped. |
@@ -291,10 +319,10 @@ scripts.
 | `omarchy-update-dnf` | Hidden helper that runs a guard-approved update transaction (`dnf` or `omadora-sync`) as a PID 1 scope (`systemd-run --scope`) so a mid-transaction systemd reexec cannot kill it; runs the transaction directly when not booted under systemd. Its `sudo` is the no-update wrapper when called from a protected update command. | **Keep internal/hidden.** Single place that owns how Omarchy invokes privileged update transactions. |
 | `omarchy-migrate-notify` | Internal login-time notification helper. Uses `omarchy-migrate --pending` and shows a notification only when this user has pending migrations. | **Keep internal/hidden.** Clear name now that the public command is `omarchy-migrate`. |
 | `omarchy-update-user-notify` | Hidden compatibility wrapper for `omarchy-migrate-notify`. | **Temporary.** Keep only for old callers. |
-| `omarchy-update-available` | Update checker for shell widget and post-update refresh. | **Keep.** Could eventually be renamed `omarchy-update-check`, but current name matches widget semantics. |
+| `omarchy-update-available` | Update checker for the shell widget; a completed update clears it directly. | **Keep.** Could eventually be renamed `omarchy-update-check`, but current name matches widget semantics. |
 | `omarchy-update-aur-pkgs` | Updates the user's Flathub apps with `flatpak update --user` when Flathub is reachable. Needs no sudo; the update still runs it between two sudo revocations, after service restarts and before user hooks. | **Keep.** Fedora has no AUR; per-user Flatpaks are the third-party story. |
 | `omarchy-update-mise` | Runs `MISE_MINIMUM_RELEASE_AGE=0 mise up` for mise-managed tools — the override of mise's release-age cooldown is the point. | **Keep.** Mise-managed tools are intentionally part of the blessed update path. |
-| `omarchy-update-orphan-pkgs` | Lists orphans and prompts before removal; noninteractive mode never removes. | **Keep for now.** Safe because it is prompt-only. |
+| `omarchy-update-orphan-pkgs` | Lists orphans and prompts before removal unless passed `-y`, as the update pipeline does; standalone noninteractive mode only reports. | **Keep for now.** Automates cleanup during updates and supports standalone review. |
 | `omarchy-update-analyze-logs` | Scans `/tmp/omarchy-update.log` for known failure patterns, currently initramfs generation. | **Keep/expand.** Useful safety net; should grow only for high-signal checks. |
 | `omarchy-update-restart` | Restarts components selected by `restart-*-required` markers, always restarts the shell, and prompts for reboot after kernel/Hyprland updates (the kernel check uses `rpm -qf`). The internal `--services-only` / `--reboot-only` phase flags let the update finish sudo-capable restarts before user hooks and defer only the unprivileged reboot prompt. | **Keep.** Important final step; may eventually include service-restart checks. |
 | `omarchy-update-firmware` | Manual firmware update command using fwupd. Not part of the normal update pipeline. | **Keep separate.** Firmware is not a routine system update step. |

@@ -1,0 +1,34 @@
+#!/bin/bash
+
+# omarchy:summary=Install the Fedora locale package for an Omarchy language
+# omarchy:args=<code>
+# omarchy:hidden=true
+
+set -euo pipefail
+
+# The passwordless grant names this packaged entrypoint and one registry code.
+# Root resolves tools and the language registry only from trusted system paths.
+if (( EUID == 0 )); then
+  export PATH=/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/bin:/sbin
+fi
+
+registry=/usr/share/omarchy/default/i18n/locales.json
+if (( EUID != 0 )); then
+  registry=${OMARCHY_LOCALE_REGISTRY:-$registry}
+fi
+
+code=${1:-}
+if (( $# != 1 )) || [[ ! $code =~ ^[a-z]{2,3}(-[A-Za-z]{2})?$ ]]; then
+  echo "Usage: omarchy-locale-generate <code>" >&2
+  exit 1
+fi
+
+locale=$(jq -r --arg code "$code" '.[$code].locale // empty' "$registry")
+if [[ ! $locale =~ ^[a-z]{2,3}_[A-Z]{2}\.UTF-8$ ]]; then
+  echo "Unknown language code: $code" >&2
+  exit 1
+fi
+
+# Fedora ships precompiled locales, grouped by the locale's language rather
+# than the UI code: both Portuguese editions share pt, and Norwegian uses nb.
+dnf install -y "glibc-langpack-${locale%%_*}" >/dev/null

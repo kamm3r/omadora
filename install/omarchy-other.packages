@@ -9,13 +9,14 @@ btrfs-progs
 dkms
 egl-wayland
 pipewire-gstreamer
+pipewire-plugin-libcamera
 gtk4-layer-shell
 pulseaudio-libs
 intel-lpmd
 intel-media-driver
 libva-nvidia-driver
 # Limine bootloader comes from terra; the entry-tool/snapper-sync helpers
-# have no RPM and are built from source by install/bootloader/limine-fedora.sh
+# have no RPM and are built from source by install/fedora/bootloader.sh
 limine
 linux-firmware
 kernel-headers
@@ -45,8 +46,8 @@ lsp-plugins-lv2
 # broadcom-wl-dkms (Fedora uses akmods: akmod-wl/broadcom-wl from RPM Fusion)
 # intel-ipu7-camera (not packaged; check in-kernel support)
 # libva-intel-driver (legacy i965 only; RPM Fusion; modern HW uses intel-media-driver)
-# limine-mkinitcpio-hook (no mkinitcpio on Fedora; dracut shim in install/bootloader/)
-# limine-snapper-sync (built from source; see install/bootloader/limine-fedora.sh)
+# limine-mkinitcpio-hook (no mkinitcpio on Fedora; dracut shim in install/fedora/)
+# limine-snapper-sync (built from source; see install/fedora/bootloader.sh)
 # linux, linux-ptl (Arch kernels; Fedora uses the kernel package)
 # linux-headers (split into kernel-headers + kernel-devel above)
 # linux-ptl-headers (Panther Lake test kernel, Arch-specific)
@@ -57,7 +58,7 @@ lsp-plugins-lv2
 # linux-firmware-marvell (bundled inside Fedora's linux-firmware)
 # dell-xps-touchpad-haptics, dell-xps13-sidecar-amps (Omarchy/AUR-specific)
 # asus-proart-p14-speaker-firmware (aarch64 ProArt P14; no Fedora x86_64 RPM)
-# apple-bcm-firmware, apple-t2-audio-config, linux-t2, linux-t2-headers,
+# apple-bcm-firmware-fetcher, apple-t2-audio-config, linux-t2, linux-t2-headers,
 #   t2fanrd (T2 MacBook; community COPR or omit)
 # macbook12-spi-driver-dkms (AUR-only)
 # tuxedo-drivers-nocompatcheck-dkms (vendor repo, not Fedora)

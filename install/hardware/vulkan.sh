@@ -16,6 +16,10 @@ done
 
 # Deduplicate: Intel and AMD share the mesa-vulkan-drivers package on Fedora.
 # (Apple/Asahi GPUs are aarch64-only, covered by the Fedora Asahi remix.)
+# Adreno GPUs are platform devices and do not appear in lspci.
+if omarchy-hw-aarch64-qualcomm; then
+  PACKAGES+=(mesa-vulkan-drivers)
+fi
 
 if (( ${#PACKAGES[@]} > 0 )); then
   omarchy-pkg-add "${PACKAGES[@]}"

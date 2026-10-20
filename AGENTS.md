@@ -63,6 +63,12 @@ guidance does not drift from the router.
 - `$OMARCHY_PATH` is set at the top level by the uwsm session environment and is always available to Omarchy runtime code.
 - Commands in `bin/` and Quickshell QML should rely on `$OMARCHY_PATH` / `Quickshell.env("OMARCHY_PATH")`; do not derive fallback paths from `HOME`, `Quickshell.shellDir`, or re-export/default `OMARCHY_PATH` manually.
 
+# Platforms
+
+Use `omarchy-hw-platform` for the platform name: `x86` for x86_64, `aarch64` for other ARM machines, `aarch64-apple` for Apple Silicon, `aarch64-qualcomm` for Snapdragon laptops, `aarch64-n1x` for NVIDIA N1x laptops, and `aarch64-gb10` for NVIDIA GB10 desktops. Use `omarchy-hw-x86` / `omarchy-hw-aarch64` for ABI or binary availability and `omarchy-hw-aarch64-apple` for family-specific behavior. Keep feature code independent of `uname -m` and device-tree parsing.
+
+Hardware setup lives under `install/hardware/<vendor-or-family>/`. Platform-owned boot and setup operations go through `omarchy-lifecycle-dispatch`; see [`docs/lifecycle-dispatch.md`](docs/lifecycle-dispatch.md). Fedora's package manifests and Limine/dracut implementation remain authoritative; Arch ARM package lists and image provisioning are deferred in this port (see `FEDORA.md`).
+
 # Privileged Commands
 
 - Follow the "Privilege Escalation" section of `default/agents/skills/omarchy/SKILL.md`. It draws the
@@ -96,6 +102,10 @@ deliberate divergence (dnf5 instead of pacman, Limine from Terra plus a
 dracut-backed `limine-mkinitcpio` shim, firewalld instead of UFW, package
 renames). Read it before touching `bin/omarchy-pkg-*`, `bin/omarchy-update-*`,
 `install/`, `etc/`, or `default/pacman/`.
+
+# Background Work
+
+Long-running shell code, daemons, and watchers react to events. Use polling only for state without a change signal; see [`agents/skills/shell-dev.md`](agents/skills/shell-dev.md) for event sources and [`docs/testing.md`](docs/testing.md) for performance checks.
 
 # Menu
 

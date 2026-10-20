@@ -47,7 +47,7 @@ def run(found, *, fail=None, dracut_enabled=True, group=kernel, packages=("kerne
         calls.append(command)
         return subprocess.CompletedProcess(command, 1 if command[0] == fail else 0, "", "")
     outcome = validate_kernel_modules(group, packages, log, dracut_enabled=dracut_enabled,
-                                      command_finder=lambda name: f"/usr/bin/{name}" if name in found else None,
+                                      command_finder=lambda name: name if name in found else None,
                                       command_runner=runner)
     return outcome, calls
 
@@ -65,6 +65,16 @@ assert outcome.success and calls == [], calls
 graphics = PackageGroup("graphic stack", "Graphic stack", ("akmod-nvidia",))
 outcome, calls = run({"akmods", "dkms", "limine-mkinitcpio"}, group=graphics, packages=("akmod-nvidia",))
 assert calls == [["akmods", "--force"], ["limine-mkinitcpio"]], calls
+
+# sudo/pkexec may omit /usr/local/bin, where Fedora's Limine shim is installed.
+calls = []
+def restricted_path(name):
+    return {"/usr/local/bin/limine-mkinitcpio": "/usr/local/bin/limine-mkinitcpio", "dracut": "/usr/bin/dracut"}.get(name)
+def record(command, **kwargs):
+    calls.append(command)
+    return subprocess.CompletedProcess(command, 0, "", "")
+outcome = validate_kernel_modules(PackageGroup("kernel", "Repair", ()), (), log, command_finder=restricted_path, command_runner=record)
+assert outcome.success and calls == [["/usr/local/bin/limine-mkinitcpio"]], calls
 PY
   pass "boot images go through limine-mkinitcpio, with dracut as the fallback"
 

@@ -1,0 +1,33 @@
+#!/bin/bash
+
+# omarchy:summary=Remove Voxtype dictation and its configuration
+# omarchy:requires-sudo=true
+
+set -e
+
+# Remove voxtype and its configurations.
+
+if omarchy-cmd-present voxtype; then
+  echo "Uninstall Voxtype to remove dictation."
+
+  # Remove services
+  systemctl --user disable --now voxtype.service 2>/dev/null || true
+  systemctl --user daemon-reload
+
+  # Remove packages and configs
+  # The COPR ships voxtype-bin; installs from voxtype.io own it as voxtype.
+  for package in voxtype-bin voxtype; do
+    if omarchy-pkg-present "$package"; then
+      omarchy-pkg-drop "$package"
+    fi
+  done
+  rm -rf ~/.config/voxtype
+  rm -rf ~/.local/share/voxtype
+  backend_config="${XDG_CONFIG_HOME:-$HOME/.config}/omarchy/defaults/dictation"
+  if [[ -f $backend_config && $(< "$backend_config") == "voxtype" ]]; then
+    rm "$backend_config"
+  fi
+  hyprctl reload >/dev/null
+else
+  echo "Voxtype was not installed."
+fi

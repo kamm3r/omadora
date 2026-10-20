@@ -47,6 +47,7 @@ chromium)
   setup_chromium_policy_directory /etc/chromium/policies/managed
   copy_chromium_flags ~/.config/chromium-flags.conf
   omarchy-theme-set-browser
+  omarchy-lifecycle-dispatch post-install chromium
   announce_browser_installed "Chromium"
   ;;
 chrome)
@@ -59,6 +60,7 @@ chrome)
   setup_chromium_policy_directory /etc/opt/chrome/policies/managed
   copy_chromium_flags ~/.config/chrome-flags.conf
   omarchy-theme-set-browser
+  omarchy-lifecycle-dispatch post-install chrome
   announce_browser_installed "Chrome"
   ;;
 edge)
@@ -80,6 +82,7 @@ EOF
   setup_chromium_policy_directory /etc/opt/edge/policies/managed
   copy_chromium_flags ~/.config/microsoft-edge-stable-flags.conf
   omarchy-theme-set-browser
+  omarchy-lifecycle-dispatch post-install edge
   announce_browser_installed "Edge"
   ;;
 brave)
@@ -89,6 +92,7 @@ brave)
   setup_chromium_policy_directory /etc/brave/policies/managed
   copy_chromium_flags ~/.config/brave-flags.conf
   omarchy-theme-set-browser
+  omarchy-lifecycle-dispatch post-install brave
   announce_browser_installed "Brave"
   ;;
 brave-origin)
@@ -99,8 +103,9 @@ firefox)
   echo "Installing Firefox..."
   omarchy-pkg-add firefox || exit 1
 
-  browser_policy_setup_firefox_distribution /usr/lib/firefox/distribution
+  browser_policy_setup_firefox_distribution /usr/lib64/firefox/distribution
   setup_firefox_wayland
+  omarchy-lifecycle-dispatch post-install firefox
   announce_browser_installed "Firefox"
   ;;
 zen)
@@ -108,6 +113,7 @@ zen)
   omarchy-pkg-aur-add app.zen_browser.zen || exit 1
 
   setup_firefox_wayland
+  omarchy-lifecycle-dispatch post-install zen
   announce_browser_installed "Zen"
   ;;
 *)

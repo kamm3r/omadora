@@ -4,7 +4,9 @@
 # (Fedora note: the linux-surface project also ships a Fedora kernel + repo at
 # https://github.com/linux-surface/linux-surface which supersedes this quirk
 # on most models.)
-if omarchy-hw-surface; then
+dracut_dir=${OMARCHY_SURFACE_DRACUT_DIR:-/etc/dracut.conf.d}
+
+if omarchy-hw-surface && omarchy-hw-x86; then
   product_name="$(cat /sys/class/dmi/id/product_name 2>/dev/null)"
   echo "Detected Surface Device"
 
@@ -19,8 +21,8 @@ if omarchy-hw-surface; then
     echo "Failed to autodetect pinctrl module."
   else
     echo "Detected pinctrl module: $pinctrl_module"
-    mkdir -p /etc/dracut.conf.d
+    mkdir -p "$dracut_dir"
     echo "add_drivers+=\" ${pinctrl_module} surface_aggregator surface_aggregator_registry surface_aggregator_hub surface_hid_core surface_hid surface_kbd intel_lpss_pci 8250_dw \"" > \
-      /etc/dracut.conf.d/surface_device_modules.conf
+      "$dracut_dir/surface_device_modules.conf"
   fi
 fi

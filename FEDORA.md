@@ -5,7 +5,36 @@ Command names, `$OMARCHY_PATH`, config layouts, themes, and the Quickshell
 desktop are unchanged; only the OS substrate was swapped. The Arch upstream is
 a readonly reference and is never modified.
 
-- The latest sync adds `Super + Shift + S` for screenshots and moves Google Maps to `Super + Shift + Alt + S`, with matching manual updates. The optional `asus-proart-p14-speaker-firmware` package remains deferred: it targets the aarch64 ProArt P14 H7407BA, while the current Omadora COPR target is Fedora 44 x86_64 (see `omadora-pkg/catalog.tsv`).
+Upstream changes are synced through `3ac43659d` (October 20, 2026), preserving the Fedora differences below. Arch-only upstream work is left out: the Dell XPS 13 Panther Lake speaker firmware and display commits (pacman firmware packages and an `omarchy-update-pacman` retention step) and the OPR repository priority in `pacman.conf`.
+
+- The follow-up October 20 sync promotes Appearance to the top-level menu, carries its translated menus, and updates its callers. Themes use `Super + Ctrl + T`, backgrounds `Super + Ctrl + W`, Network `Super + Ctrl + N`, Activity `Super + Shift + T`, and Calculator `Super + Shift + Q`. Install media can preset the desktop language, keyboard and timezone; Fedora generates the chosen language through `glibc-langpack-*`, and user setup seeds the language without a session or notifications. Existing language choices and named user folders are preserved. Owner setup settles the region marker without rendering pacman repositories; the Arch-only Quattro upgrader remains unchanged.
+
+- The October 20 sync carries the new notification stacks, snoozes and history panel, Elsewhen place search and people, media-title scrolling, consistent touchpad scrolling for TUIs, and factory-reset rollback and shared-ESP safeguards. Notifications resolve icons locally and never fetch site icons; KDE Connect is an ordinary sender. The default Fedora package set already provides the final notification engine's dependencies.
+- Node is now a native lazy mise default, and upgrade pruning is disabled in the shipped system mise configuration. The Node and auto-prune migrations preserve pinned versions, preinstall opt-outs, and user configuration overrides. T3 Code's migration installs and themes without prompting or launching, and removes the old Fedora/current RPM names only after theming succeeds. The superseded interactive T3 theme migration is removed.
+- Keyboard screenshots now use `Super + Ctrl + Alt + C`; `Super + Shift + S` opens Google Maps again. Calculator shortcuts follow the preinstalled-app opt-out. The Neovim transparency migration skips user-managed configurations without `omarchy-nvim`. Fedora's Zen Flatpak guard, package helpers, boot adaptations, and T3 Code RPM compatibility are retained.
+
+- The October 19 sync carries per-monitor workspaces and bar labels, Codex spend-limit details, language changes propagated into Hyprland, safe Taildrop notification glyphs, Bitwarden window rules, gaming architecture guards, background-selection repair, and platform-declared fingerprint readers. Fedora keeps its libfprint packages, Spotify uses Flatpak on x86 and the web player on ARM, and Dropbox remains x86-only until a Fedora ARM installation path exists.
+- Default CLI tools now use mise's native lazy shims instead of generated wrappers. The companion `omadora-pkg` settings spec owns `etc/mise/conf.d/omarchy-tools.toml`; deploy the rebuilt settings RPM before running migration `1791382872.sh`, which deliberately stays pending until those declarations exist. This needs mise 2026.10.11 or newer; Terra provides it.
+- T3 Code installs as a per-user self-updating AppImage, with stable/nightly selection and a migration covering both current RPM names and the older Fedora `t3code` package. Existing threads and settings stay in the user's home. Arch pacman channel changes, mkinitcpio/Plymouth vconsole hooks and their rebuild migration, and the seed-dependent OpenClaw move remain excluded. Fedora retains its dracut setup and OpenClaw RPM/npm fallback; portable OpenClaw launcher recovery and removal bookkeeping fixes are carried.
+
+- The October 17 sync carries setup for already-installed NVIDIA AI Workbench and DGX Dashboard, Snapdragon T14s camera access with Fedora's `pipewire-plugin-libcamera`, the HP EliteBook Ultra G1q microphone UCM profiles, and Snapdragon mpv V4L2 decoding. NVIDIA app packages remain optional and are not added to the Fedora package set. The HP profiles are reference assets for platform packaging; this tree does not install them into the host ALSA directory. Chromium's decoder flags are deferred pending validation against Fedora's Chromium build; upstream targets Arch Linux ARM, and Fedora browser flags remain unchanged. The ARM recovery migration is excluded because it marks Arch Limine packages explicit with pacman, while Fedora uses its existing RPM/dracut boot stack.
+
+- The October 15 sync adds `Super + Shift + S` for screenshots and moves Google Maps to `Super + Shift + Alt + S`, with matching manual updates. The optional `asus-proart-p14-speaker-firmware` package remains deferred: it targets the aarch64 ProArt P14 H7407BA, while the current Omadora COPR target is Fedora 44 x86_64 (see `omadora-pkg/catalog.tsv`).
+- Dictation: upstream ships `superwhisper-bin` and selects Superwhisper by default through `config/omarchy/defaults/dictation`. Superwhisper has no Fedora RPM yet, so neither the package nor the default file is shipped; fresh installs pick a backend in Setup > Defaults > Dictation, and the Superwhisper entries stay and fail at `omarchy-pkg-add`, like the AI desktop apps below. Migration `1791479273.sh` keeps Voxtype selected when the `voxtype` command exists rather than only for the `voxtype-bin` package.
+- Background intros play through OWE. Older OWE RPMs require the package named `ffmpeg` and conflict with Nobara’s `ffmpeg-free`; the corrected recipe requires `/usr/bin/ffmpeg`. Until the corrected RPM is published and installed, `omarchy-theme-bg-boot-intro` treats a missing `owe` like the intros toggle being off instead of waiting out its five second boot deadline.
+- The install list uses the COPR RPM names `localsend`, `ttf-ia-writer`, and `ttf-jetbrains-mono-nerd-basic`. The default list requests `/usr/bin/ffmpeg`, accepting Fedora’s `ffmpeg-free` or an installed full FFmpeg package; the Cliamp, Hype, Monologue, Omacut, and OWE recipes in `omadora-pkg` accept `/usr/bin/ffmpeg` at runtime so they also work with Nobara’s existing codec libraries once those RPM releases are published.
+- Disktree replaces the Disk Usage TUI as `disktree-bin` from the Omadora COPR.
+- The latest sync carries Kimi selection and usage collection, subscription-account sign-in recovery and SSH copying, browser link routing and default-browser policies, language-specific CJK font fallback, quiet one-second Limine menus (the explicit reboot-to-menu action was removed in the October 19 sync), shell startup fixes, and the parallel shell test runner. The app-building skill keeps RPM/COPR publishing and Fedora dependencies; Limine defaults and tests keep Fedora kernel ordering.
+- SSH account copying now matches source names and command IDs and supplies a receiver in memory for older destinations. Fingerprint retries pause while the lock has the displays off and resume on wake; Rust removal calls the real rustup before clearing mise links and shims. The shell test runner overlaps its idle guard with the parallel pool, and test fixtures use shorter waits while retaining the same checks.
+- The October 15 sync carries 50-language UI catalogs and translated manuals, bar dragging and section/orientation changes, click clipping, floating-workspace minimization fixes, locale-safe audio/memory parsing, CJK glyph preferences, Hong Kong Cangjie input, and Fcitx theming. Language setup installs Fedora `glibc-langpack-*` RPMs; Norwegian maps to `nb`, both Chinese editions to `zh`, and both Portuguese editions to `pt`. Fedora's split script fonts are in the base set and migration `1792047786.sh` adds them to existing installs. Newly added upstream CJK strings use English until their translations land.
+- Platform detection recognizes Snapdragon, NVIDIA N1x, and GB10. Portable touchpad, GB10 sleep, interface ARP, and Surface fixes are carried, with Surface modules written as dracut `add_drivers` and Qualcomm Vulkan provided by `mesa-vulkan-drivers`. Arch ARM manifests/keyrings, custom N1x kernels and firmware-memory changes, nvPCR overrides, Qualcomm DTB/UKI provisioning, Yoga remoteproc setup, the Gliff ARM install migration (its Fedora spec is still x86-only), and firmware-dependent ProArt audio/function-key changes remain deferred until Fedora packages and boot support exist.
+
+- Menu guards cache an RPM package-style names/provides snapshot until the SQLite database or its WAL changes, and avoid storing queries that overlap the RPM lock. Platform lifecycle dispatch queries RPM ownership/version state rather than pacman's local database.
+- The portable appearance controls, floating workspace mode, input-method setup, event-driven shell services, screen recording fixes, and Starship theme are carried. `omarchy-hyprland-titlebars` has no Fedora RPM yet, so floating workspaces work without titlebars and its install migration is deferred. Signed now has a published Fedora RPM and is included in the base package list alongside Xournal++; Xournal++ defaults remain in place and the Signed migration is deferred. Gliff has an Omadora RPM and joins the defaults. OBS Studio, Kdenlive, Clang, and LLVM leave the base package set; Rust setup installs Clang and LLVM when needed.
+- Arch Linux ARM/Apple Silicon package manifests, pacman keyring/image provisioning, mkinitcpio platform hooks, and Arch channel changes are not carried. The portable LUKS re-key journal and keyboard provisioning changes are carried with their shared helpers. USB/Thunderbolt authorization was added and reverted within this upstream range; neither its setup nor its cleanup migration is carried because Omadora never shipped it. Fedora's existing Limine/dracut implementation stays in charge; the console query boot fix applies through its compatible `limine-mkinitcpio` shim.
+- Input methods install Fedora's `fcitx5-mozc`, `fcitx5-hangul`, `fcitx5-chinese-addons`, and `fcitx5-chewing`. Locale repair installs `glibc-langpack-en` instead of editing `locale.gen` or running `locale-gen`.
+
+The default package list explicitly includes `hyprland-preview-share-picker` for the configured portal picker, plus `chrony`, `firewalld`, `flatpak`, and `systemd-resolved` for the Fedora setup and runtime helpers.
 
 ## Package management: dnf5 instead of pacman
 
@@ -101,7 +130,7 @@ a readonly reference and is never modified.
 ## Repositories: `install/fedora/repos.sh`
 
 Beyond Fedora proper: Omadora COPR (`omarchy`, `omarchy-settings`, and ported
-Omarchy apps), Terra (limine, mise, `usage-cli`, `localsend-bin`,
+Omarchy apps), Terra (limine, mise, `usage-cli`,
 `uwsm`, lazygit, asusctl, broadcom-wl, xpadneo, v4l2-relayd),
 lionheartp/Hyprland COPR (hyprland stack, quickshell), RPM Fusion free/nonfree
 (codecs, obs-studio, intel-media-driver, akmod-nvidia, v4l2loopback, sunshine).
@@ -126,7 +155,7 @@ Per project decision the Limine stack is kept, not replaced with GRUB:
   per-version directory does not exist. `install/fedora/limine-update`
   re-deploys the bootloader binaries (like Arch's helper of the same name),
   so all existing callers work unchanged. Both install to `/usr/local/bin`
-  via `install/fedora/bootloader.sh`.
+  via `install/fedora/bootloader.sh`. The updater resolves the shim by its absolute path when the privileged PATH omits `/usr/local/bin`; the shim invokes `limine-entry-tool` by absolute path too. Migration `1791892610.sh` refreshes an existing shim with that fix and the current kernel/initramfs argument order.
 - Kernel packages reach Limine through `kernel-install` rather than pacman
   hooks. The same machine-id directory makes `kernel-install` pick a Boot
   Loader Specification layout on the ESP, where `20-grub.install` skips
@@ -200,6 +229,7 @@ Per project decision the Limine stack is kept, not replaced with GRUB:
   `omarchy-cmd-browser-handoff` recognizes the Fedora binaries too
   (`chromium-browser`, Brave's `brave-browser` and `brave-browser-stable`), so
   launches reach the running browser directly as they do upstream.
+  Firefox installs its policies in Fedora's `/usr/lib64/firefox/distribution`; the default-browser policy migration checks that directory as well as the legacy `/usr/lib` location.
 - Editors: VSCode (Microsoft repo), Cursor (`cursor` from Terra), Zed (`zed`
   from Terra; `omazed` theme helper from Omadora COPR), Sublime Text (official
   Sublime repo via `omarchy-install-editor-sublime`), stock `emacs`,
@@ -209,10 +239,12 @@ Per project decision the Limine stack is kept, not replaced with GRUB:
   (`com.bitwarden.desktop`) plus the Terra `bitwarden-cli` RPM; Spotify via
   Flathub (`com.spotify.Client`); ONCE via the upstream release binary
   (`ONCE_VERSION`, default 0.3.2) plus the vendored
-  `default/systemd/system/once-background.service`; Voxtype needs a manual
-  install from https://voxtype.io/ (installer configures it afterwards);
+  `default/systemd/system/once-background.service`; Voxtype installs as
+  `voxtype-bin` from the Omadora COPR, and an existing install from
+  https://voxtype.io/ (RPM name `voxtype`) is recognized by its command;
   LM Studio via Flathub (`ai.lmstudio.lm-studio`); Xbox controllers via the
   Terra `xpadneo` RPM (plus `kernel-devel`, not `linux-headers`).
+- OpenClaw keeps the existing npm fallback until a Fedora RPM ships the seed installer and archive under `/usr/share/openclaw`; upstream's new self-updating runtime migration is deferred with that packaging dependency.
 - AI desktop apps: `hermes-desktop` and `claude-desktop` are Omarchy
   repackagings with no Fedora RPM or Flathub build yet, so Install > AI keeps
   upstream's entries and scripts unchanged and they fail at `omarchy-pkg-add`
@@ -223,8 +255,7 @@ Per project decision the Limine stack is kept, not replaced with GRUB:
   (`rpm/<name>.spec`, built by `rpmbuild` and installed with `dnf`, with a
   timestamp release so every run upgrades) instead of a PKGBUILD and
   `makepkg -fsi`. Its build set is `gcc-c++`, `make`, the Qt `-devel`
-  packages (`qmake6` comes with `qt6-qtbase-devel`), and `ffmpeg-free`, which
-  migration `1790702362.sh` adds only when no `ffmpeg` is installed.
+  packages (`qmake6` comes with `qt6-qtbase-devel`), and `/usr/bin/ffmpeg` (provided by `ffmpeg-free` or full FFmpeg). Migration `1790702362.sh` adds `ffmpeg-free` only when no `ffmpeg` is installed.
 - Development: Symfony CLI via its upstream release RPM (`SYMFONY_VERSION`,
   default 5.20.0, provides `symfony-cli`). Dropbox has no Fedora path yet
   (`dropbox`/`nautilus-dropbox`/`dropbox-cli` are all unpackaged).
@@ -232,10 +263,10 @@ Per project decision the Limine stack is kept, not replaced with GRUB:
   Terra), RetroArch (Fedora's 14-core set; full set via Flatpak
   `org.libretro.RetroArch`), 32-bit drivers via `.i686` multilib
   (`mesa-vulkan-drivers.i686`, `xorg-x11-drv-nvidia-libs.i686`).
-- Flatpak fills gaps with no RPM, always `--user`: Obsidian (`md.obsidian.Obsidian`), Moonlight (`com.moonlight_stream.Moonlight`), Zen browser (`app.zen_browser.zen`, via `omarchy install browser zen`), Sunshine fallback (`dev.lizardbyte.app.Sunshine`), LM Studio (`ai.lmstudio.lm-studio`), and the full RetroArch core set (`org.libretro.RetroArch`). The Flathub user remote is added by `install/fedora/repos.sh` as the login user. `lazydocker` installs from upstream.
+- Flatpak fills gaps with no RPM, always `--user`: Obsidian (`md.obsidian.Obsidian`), Moonlight (`com.moonlight_stream.Moonlight`), Zen browser (`app.zen_browser.zen`, via `omarchy install browser zen`), Sunshine fallback (`dev.lizardbyte.app.Sunshine`), LM Studio (`ai.lmstudio.lm-studio`), and the full RetroArch core set (`org.libretro.RetroArch`). The Flathub user remote is added by `install/fedora/repos.sh` as the login user. `lazydocker` is no longer preinstalled; users can still install its upstream binary.
 - Omarchy's tools `aether`, `cliamp`, `hype`, `monologue`, `omacalc`, `omacut`, `omasnap`, `omawrite`, `owe`, `owe-lockfeed`, `tobi-try`, and `ttfx` ship from `kammer/omadora` COPR and are in the base package list. The `omasnap` and `cliamp` migrations install them on existing Fedora systems.
 - Optional Omadora COPR RPMs include `omarchy-audio-tuner`, `omazed`, `omarchy-emacs`, `omarchy-fish`, `omarchy-zsh`, `tensaku`, `ttf-ia-writer`, `python-terminaltexteffects`, `python-sounddevice`, `tzupdate`, and `wayfreeze`. The base package list already includes `xdg-terminal-exec`, which also has an Omadora COPR build.
-- `herdr` and `omarchy-nvim` remain commented in the base package list until their Fedora RPMs ship. Their install migrations run only once dnf can find the package. The separate `omadora-pkg` repository tracks the upstream package inventory and Fedora ports.
+- `herdr`, `omarchy-nvim`, and `tensaku` are published in the Omadora COPR and remain optional, commented entries in the base package list. Their install migrations run only once dnf can find the package. The separate `omadora-pkg` repository tracks the upstream package inventory and Fedora ports.
 - fzf shell integration: `default/bash/init` loads it with
   `eval "$(fzf --bash)"` instead of sourcing upstream's Arch paths
   (`/usr/share/fzf/completion.bash`, `/usr/share/fzf/key-bindings.bash`).
@@ -251,7 +282,10 @@ Per project decision the Limine stack is kept, not replaced with GRUB:
   transcript and `omarchy-settings` needs `plymouth-plugin-script` for its
   boot theme. Likewise Arch's `gnome-keyring` brings `gcr` 4 with
   `gcr-ssh-agent`, while Fedora's requires only `gcr3`, so
-  `omarchy-setup-security-ssh-agent` installs `gcr` itself.
+  `omarchy-setup-security-ssh-agent` installs `gcr` itself. Arch's `libvips`
+  also carries `vipsthumbnail`, which `omarchy-menu-images` uses for picker
+  thumbnails; Fedora ships it in `vips-tools`, which the base package list
+  installs and migration `1791536173.sh` adds to existing installs.
 
 ## Packaging: RPM specs and COPR
 

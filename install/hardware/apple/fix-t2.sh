@@ -3,11 +3,12 @@
 if lspci -nn | grep "106b:180[12]" >/dev/null; then
   echo "Detected MacBook with T2 chip. Installing support items..."
 
-  # linux-t2, apple-t2-audio-config, apple-bcm-firmware, and t2fanrd have no
+  # linux-t2, apple-t2-audio-config, apple-bcm-firmware-fetcher, and t2fanrd have no
   # Fedora RPMs. T2 support on Fedora is a community effort (t2linux); check
   # for a current Fedora COPR before reviving kernel/audio/fan packages.
   # The module loading, boot args, and firmware config below still apply to a
-  # T2-patched kernel.
+  # T2-patched kernel. Wi-Fi firmware must be supplied from an existing macOS
+  # volume or a macOS recovery image; it is not bundled with the fetcher.
   echo "T2 Mac detected: install a T2-patched kernel plus t2fanrd from the community before relying on this hardware." >&2
 
   mkdir -p /etc/modules-load.d

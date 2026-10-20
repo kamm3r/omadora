@@ -7,6 +7,9 @@
 
 set -e
 
+# 32-bit graphics libraries are only available on x86.
+omarchy-hw-x86 || exit 0
+
 echo "Installing 32-bit graphics drivers..."
 
 # Fedora has no lib32-* namespace; 32-bit compatibility packages use the
@@ -36,4 +39,6 @@ for pkg in "${PACKAGES[@]}"; do
   fi
 done
 
-(( ${#unique[@]} > 0 )) && omarchy-pkg-add "${unique[@]}"
+if (( ${#unique[@]} > 0 )); then
+  omarchy-pkg-add "${unique[@]}"
+fi

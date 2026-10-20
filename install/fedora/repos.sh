@@ -3,14 +3,15 @@
 # packages -> config -> hardware).
 #
 # Repos:
-#   terra                      - limine, mise, usage-cli, usage-cli, localsend-bin,
+#   terra                      - limine, mise, usage-cli,
 #                                uwsm, golang-github-jesseduffield-lazygit,
 #                                asusctl, broadcom-wl, akmod-wl, xpadneo,
 #                                v4l2-relayd
 #   lionheartp/Hyprland (COPR) - hyprland, hyprpicker, hyprsunset,
 #                                hyprland-guiutils, xdg-desktop-portal-hyprland,
 #                                quickshell
-#   kammer/omadora (COPR)      - Omadora and ported Omarchy applications
+#   kammer/omadora (COPR)      - Omadora, ported Omarchy applications, localsend,
+#                                ttf-ia-writer, ttf-jetbrains-mono-nerd-basic
 #   RPM Fusion free + nonfree  - codecs/ffmpeg, obs-studio, intel-media-driver,
 #                                akmod-nvidia, libva-intel-driver, sunshine,
 #                                v4l2loopback (akmod)

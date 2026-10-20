@@ -6,8 +6,12 @@
 set -e
 
 echo "Installing Steam..."
-omarchy-pkg-add steam
+
+# Install the hardware-matched 32-bit Vulkan drivers before Steam so its
+# dependencies resolve against the right GPU stack. Fedora uses .i686 packages.
 omarchy-install-gaming-gpu-lib32
+omarchy-pkg-add steam
+omarchy-lifecycle-dispatch post-install steam
 
 echo ""
 echo "Steam will start automatically now. This might take a while..."

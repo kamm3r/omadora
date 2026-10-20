@@ -3,7 +3,7 @@
 # Lines starting with # are notes and are ignored by installers.
 #
 # Repos needed beyond Fedora proper (enabled by install scripts):
-#   terra                    - limine, mise, usage-cli, localsend-bin, uwsm,
+#   terra                    - limine, mise, usage-cli, uwsm,
 #                              golang-github-jesseduffield-lazygit, asusctl,
 #                              broadcom-wl
 #   lionheartp/Hyprland COPR - hyprland, hyprpicker, hyprsunset,
@@ -28,7 +28,7 @@ owe
 owe-lockfeed
 tobi-try
 ttfx
-# Omarchy tools awaiting a Fedora RPM (see FEDORA.md).
+# Optional Omarchy tools available from kammer/omadora (see FEDORA.md).
 #herdr
 #omarchy-nvim
 #tensaku
@@ -42,7 +42,7 @@ bolt
 brightnessctl
 btop
 chromium
-clang
+chrony
 cups
 cups-filters
 cups-pk-helper
@@ -53,23 +53,31 @@ docker-buildx
 docker-compose
 dosfstools
 dotnet-runtime-10.0
-dua-cli
+disktree-bin
 evince
 exfatprogs
 eza
 fakeroot
 fastfetch
 fcitx5
+fcitx5-chewing
+fcitx5-chinese-addons
+fcitx5-hangul
+fcitx5-mozc
 fcitx5-gtk
 fcitx5-qt
+fcitx5-table-extra
 fd-find
 ffmpegthumbnailer
+firewalld
+flatpak
 fontconfig
 fontawesome-6-free-fonts
 foot
 ftp
 fzf
 git
+gliff
 gnome-keyring
 grim
 gpu-screen-recorder
@@ -80,6 +88,7 @@ gvfs-smb
 hostname
 hyprland
 hyprland-guiutils
+hyprland-preview-share-picker
 hyprpicker
 hyprsunset
 ImageMagick
@@ -90,16 +99,14 @@ inotify-tools
 inxi
 NetworkManager
 jq
-kdenlive
 golang-github-jesseduffield-lazygit
 less
 libsecret
 libxkbcommon-utils
-vips
+vips-tools
 libyaml
 libreoffice
-llvm
-localsend-bin
+localsend
 compat-lua
 luarocks
 man-db
@@ -111,11 +118,19 @@ nautilus
 nautilus-python
 gnome-disk-utility
 google-noto-sans-fonts
+google-noto-sans-arabic-fonts
+google-noto-sans-bengali-fonts
+google-noto-sans-devanagari-fonts
+google-noto-sans-hebrew-fonts
+google-noto-sans-sinhala-fonts
+google-noto-sans-tamil-fonts
+google-noto-sans-thai-fonts
+google-noto-nastaliq-urdu-fonts
+google-noto-serif-cjk-fonts
 google-noto-sans-cjk-fonts
 google-noto-color-emoji-fonts
 nss-mdns
 neovim
-obs-studio
 pamixer
 pinta
 plocate
@@ -126,7 +141,7 @@ power-profiles-daemon
 python3-gobject
 python3-libdnf5
 python3-poetry-core
-ia-writer-nerd-fonts
+ttf-ia-writer
 qemu-user-binfmt
 qemu-user-static
 qrencode
@@ -135,17 +150,19 @@ quickshell
 ripgrep
 ruby
 sddm
+signed
 slurp
 socat
 starship
 sushi
 system-config-printer
+systemd-resolved
 tesseract
 tesseract-langpack-eng
 tldr
 tree-sitter-cli
 tmux
-jetbrainsmono-nerd-fonts
+ttf-jetbrains-mono-nerd-basic
 udiskie
 unzip
 usage-cli
@@ -169,7 +186,8 @@ zoxide
 # Building Omarchy-style apps (the omarchy-app agent skill): C++ and Qt Quick
 # with qmake6. Arch: base-devel ffmpeg qt6-base qt6-declarative qt6-multimedia
 # qt6-svg qt6-wayland.
-ffmpeg-free
+# Accept Fedora ffmpeg-free or the full FFmpeg package already on Nobara/RPM Fusion.
+/usr/bin/ffmpeg
 gcc-c++
 make
 qt6-qtbase-devel
@@ -182,7 +200,6 @@ qt6-qtwayland-devel
 # asdcontrol (Apple Silicon only, N/A on x86_64 Fedora)
 # expac (pacman tooling; use dnf repoquery)
 # gnome-themes-extra (retired in Fedora)
-# lazydocker (no RPM; install upstream binary manually)
 # moonlight-qt (no RPM; Flathub com.moonlight_stream.Moonlight)
 # obsidian (no RPM; Flathub md.obsidian.Obsidian)
 # pacman-contrib (pacman tooling; use dnf clean/autoremove)

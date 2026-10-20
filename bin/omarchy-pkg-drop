@@ -27,5 +27,9 @@ for pkg in "$@"; do
 done
 
 if (( ${#installed[@]} > 0 )); then
-  sudo dnf remove -y "${installed[@]}"
+  if (( EUID == 0 )); then
+    dnf remove -y "${installed[@]}"
+  else
+    sudo dnf remove -y "${installed[@]}"
+  fi
 fi

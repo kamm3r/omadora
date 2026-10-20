@@ -1,0 +1,48 @@
+#!/bin/bash
+
+# omarchy:summary=Apply the current theme colors to Kdenlive
+# omarchy:hidden=true
+
+# Kdenlive reads [UiSettings] ColorSchemePath from kdenliverc, resolves it
+# against color-schemes/ on the data paths, and applies the result itself with
+# KColorScheme::createApplicationPalette at startup. It only re-reads that
+# entry when the user picks from its own Color Scheme menu, so the palette
+# lands on the next launch rather than on a running instance.
+
+GENERATED_COLORS="$HOME/.local/state/omarchy/current/theme/kdenlive.colors"
+SCHEME_NAME="Omarchy"
+SCHEME_PATH="$HOME/.local/share/color-schemes/$SCHEME_NAME.colors"
+KDENLIVERC="$HOME/.config/kdenliverc"
+
+! omarchy-toggle-enabled skip-kdenlive-theme-changes || exit 0
+[[ -f $GENERATED_COLORS ]] || exit 0
+
+omarchy-cmd-present kdenlive || exit 0
+
+# A regular file rather than a symlink into current/theme, which omarchy-theme-set
+# swaps with rm + mv: kdenlive resolves the entry again on every launch, so a
+# dangling symlink mid-swap would show as a missing scheme.
+mkdir -p "$HOME/.local/share/color-schemes"
+if ! cmp -s "$GENERATED_COLORS" "$SCHEME_PATH" 2>/dev/null; then
+  tmp=$(mktemp "$HOME/.local/share/color-schemes/.omarchy.XXXXXX") || exit 0
+  cat "$GENERATED_COLORS" >"$tmp"
+  mv "$tmp" "$SCHEME_PATH"
+fi
+
+# Kdenlive writes kdenliverc from memory on exit, so a running instance would
+# drop this key again and its own menu would overwrite it on the way out. The
+# launch at least gets the palette, and the next launch reads the key back from
+# what was written then.
+if [[ -f $KDENLIVERC ]] && ! pgrep -x kdenlive >/dev/null; then
+  if grep -qx 'ColorSchemePath=.*' "$KDENLIVERC"; then
+    sed -i --follow-symlinks -E \
+      "s|^(ColorSchemePath=).*\$|\\1$SCHEME_NAME.colors|" \
+      "$KDENLIVERC"
+  elif grep -qx '\[UiSettings\]' "$KDENLIVERC"; then
+    sed -i --follow-symlinks -E \
+      "s|^(.\\[UiSettings.\\])\$|\\1\nColorSchemePath=$SCHEME_NAME.colors|" \
+      "$KDENLIVERC"
+  else
+    printf '\n[UiSettings]\nColorSchemePath=%s.colors\n' "$SCHEME_NAME" >>"$KDENLIVERC"
+  fi
+fi

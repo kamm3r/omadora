@@ -11,9 +11,13 @@ if o.preinstalled_bindings_enabled() then
   -- Bindings for preinstalled Omarchy applications, TUIs, and web apps.
   o.bind("SUPER + ALT + RETURN", "Tmux", { omarchy = "terminal-tmux" })
   o.bind("SUPER + CTRL + RETURN", "Herdr", { omarchy = "terminal-herdr" })
+  o.bind("SUPER + SHIFT + Q", "Calculator", "omacalc")
+  o.bind("XF86Calculator", "Calculator", "omacalc")
   o.bind("SUPER + SHIFT + M", "Music", { omarchy = "spotify" })
   o.bind("SUPER + SHIFT + ALT + M", "Music TUI", { tui = "cliamp", focus = true })
-  o.bind("SUPER + SHIFT + D", "Docker", { tui = "omarchy-launch-docker-tui" })
+  if o.cmd_present("lazydocker") then
+    o.bind("SUPER + SHIFT + D", "Docker", { tui = "omarchy-launch-docker-tui" })
+  end
   o.bind("SUPER + SHIFT + G", "Signal", { omarchy = "signal" })
   o.bind("SUPER + SHIFT + O", "Obsidian", { launch = "obsidian", focus = "^obsidian$" })
   o.bind("SUPER + SHIFT + W", "Omawrite", { launch = "omawrite" })
@@ -28,7 +32,7 @@ if o.preinstalled_bindings_enabled() then
   o.bind("SUPER + SHIFT + ALT + G", "WhatsApp", { webapp = "https://web.whatsapp.com/", focus = true })
   o.bind( "SUPER + SHIFT + CTRL + G", "Google Messages", { webapp = "https://messages.google.com/web/conversations", focus = true })
   o.bind("SUPER + SHIFT + P", "Google Photos", { webapp = "https://photos.google.com/", focus = true })
-  o.bind("SUPER + SHIFT + ALT + S", "Google Maps", { webapp = "https://maps.google.com/", focus = true })
+  o.bind("SUPER + SHIFT + S", "Google Maps", { webapp = "https://maps.google.com/", focus = true })
   o.bind("SUPER + SHIFT + X", "X", { webapp = "https://x.com/" })
   o.bind("SUPER + SHIFT + ALT + X", "X Post", { webapp = "https://x.com/compose/post" })
 end

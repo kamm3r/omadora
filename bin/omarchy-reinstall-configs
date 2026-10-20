@@ -26,3 +26,6 @@ if omarchy-cmd-present omarchy-nvim-refresh; then
 elif omarchy-cmd-present omarchy-nvim-setup; then
   omarchy-nvim-setup --force
 fi
+
+# Restore the hardware-specific mpv setting after copying shared defaults.
+omarchy-install-video-decode

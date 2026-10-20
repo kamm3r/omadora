@@ -16,6 +16,7 @@ notification_log="$test_tmp/notification-log"
 setup_log="$test_tmp/setup-log"
 browser_file="$test_tmp/browser"
 mkdir -p "$mock_bin" "$test_home/.config" "$installed_dir"
+export XDG_CONFIG_HOME="$test_home/.config" XDG_CONFIG_DIRS="$test_tmp/system-config"
 
 cat >"$mock_bin/omarchy-cmd-missing" <<'SH'
 #!/bin/bash
@@ -126,6 +127,9 @@ for setup_command in \
   ln -s omarchy-test-setup-call "$mock_bin/$setup_command"
 done
 
+# The real browser installer below calls the platform's post-install hook; on a
+# Mac with the platform package installed that would run, so answer it here.
+printf '#!/bin/bash\nexit 0\n' >"$mock_bin/omarchy-lifecycle-dispatch"
 chmod +x "$mock_bin"/*
 
 export HOME="$test_home"
@@ -234,11 +238,11 @@ rm -f "$installed_dir/firefox"
 OMARCHY_TEST_REAL_BROWSER_INSTALL=true omarchy-default-browser --install firefox >/dev/null
 [[ $(<"$install_log") == "pkg:firefox" ]] || fail "Firefox browser installer installs the package"
 [[ $(omarchy-default-browser) == "firefox" ]] || fail "Firefox becomes the default after its full installer succeeds"
-grep -Fxq 'sudo:install -d -m 0755 -o root -g root /usr/lib/firefox/distribution' "$setup_log" ||
+grep -Fxq 'sudo:install -d -m 0755 -o root -g root /usr/lib64/firefox/distribution' "$setup_log" ||
   fail "Firefox browser installer creates its distribution directory"
-grep -Fxq 'sudo:find /usr/lib/firefox/distribution -mindepth 1 -maxdepth 1 ! -user root -exec rm -rf -- {} +' "$setup_log" ||
+grep -Fxq 'sudo:find /usr/lib64/firefox/distribution -mindepth 1 -maxdepth 1 ! -user root -exec rm -rf -- {} +' "$setup_log" ||
   fail "Firefox browser installer drops non-root files from its distribution directory"
-grep -Fxq "sudo:install -m 644 -o root -g root -T $ROOT/default/firefox/policies.json /usr/lib/firefox/distribution/policies.json" "$setup_log" ||
+grep -Fxq "sudo:install -m 644 -o root -g root -T $ROOT/default/firefox/policies.json /usr/lib64/firefox/distribution/policies.json" "$setup_log" ||
   fail "Firefox browser installer copies policies.json without following a destination symlink"
 [[ -e $installed_dir/firefox ]] || fail "Firefox browser installer marks firefox installed"
 pass "Firefox browser installer restores the complete Omarchy setup"

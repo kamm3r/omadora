@@ -1,4 +1,7 @@
-if lspci | grep -qi 'nvidia'; then
+# N1x needs a platform kernel and NVIDIA driver that Fedora does not ship yet.
+if omarchy-hw-aarch64-n1x; then
+  echo "NVIDIA N1x setup is deferred until Fedora kernel and driver packages are available; see FEDORA.md"
+elif lspci | grep -qi 'nvidia'; then
   # Fedora builds NVIDIA modules with akmods against kernel-devel (RPM Fusion
   # prerequisite; see install/fedora/repos.sh).
   omarchy-pkg-add kernel-devel

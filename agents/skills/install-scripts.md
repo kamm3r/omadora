@@ -12,6 +12,7 @@ commands and reusable setup leaves:
 - avoid `exit` in sourced setup scripts unless intentionally aborting setup.
 - use `$OMARCHY_INSTALL` and `$OMARCHY_PATH` instead of hard-coded Omarchy paths.
 - keep root-scoped hardware setup under `install/hardware/` and orchestrate it through `install/hardware/all.sh`.
+- gate platform-specific setup on a predicate built on `omarchy-hw-platform` (`omarchy-hw-aarch64-apple`), not on `uname -m`; architecture checks (`omarchy-hw-x86`, `omarchy-hw-aarch64`) are only for ABI, binary availability or a repository's `$arch`. Platform names and where platform code lives are in the Platforms section of `AGENTS.md`.
 - keep every per-user setup leaf under `install/user/` (including `install/user/hardware/` and `install/user/first-run/`) so it is clear what must run for each user.
 - Fedora does not guarantee kernel headers in the base install: akmod and DKMS installers add `kernel-devel` alongside their driver package (upstream Omarchy drops that step because its base install ships matching headers).
 - prefer helper commands for package and command checks where available.

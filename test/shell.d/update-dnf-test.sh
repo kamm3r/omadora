@@ -28,7 +28,7 @@ else
   expected_scope=""
 fi
 
-run_helper dnf upgrade -y
+LC_ALL="" run_helper dnf upgrade -y
 [[ $(cat "$test_tmp/call") == "env OMARCHY_UPDATE_DNF=1 ${expected_scope}dnf upgrade -y" ]] ||
   fail "helper composes the guarded dnf invocation" "$(cat "$test_tmp/call")"
 pass "helper composes the guarded dnf invocation"
@@ -38,7 +38,7 @@ LC_ALL=C run_helper dnf upgrade -y
   fail "helper forwards LC_ALL to the transaction" "$(cat "$test_tmp/call")"
 pass "helper forwards LC_ALL to the transaction"
 
-run_helper omadora-sync cli
+LC_ALL="" run_helper omadora-sync cli
 [[ $(cat "$test_tmp/call") == "env OMARCHY_UPDATE_DNF=1 ${expected_scope}omadora-sync cli" ]] ||
   fail "helper shields the omadora-sync transaction too" "$(cat "$test_tmp/call")"
 pass "helper shields the omadora-sync transaction too"

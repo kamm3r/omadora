@@ -1,0 +1,39 @@
+#!/bin/bash
+
+# omarchy:summary=Let mpv decode video on the video chip of Snapdragon laptops
+
+set -euo pipefail
+
+# The Snapdragon video chip is a V4L2 decoder that mpv's auto-safe list omits.
+# Arch Linux ARM's Chromium V4L2 flags have not been validated on Fedora, so
+# leave browser flags alone.
+
+# mpv reads this after /etc/mpv/mpv.conf. A global hwdec the user set stays as
+# it is. One inside a profile only applies with that profile, so the fallback
+# still goes in, on top, where no [profile] section can catch it.
+setup_mpv() {
+  local conf=~/.config/mpv/mpv.conf
+  local comment="# Fall back to the Snapdragon video chip's decoder (Omarchy)"
+  local hwdec='hwdec=auto-safe,v4l2m2m-copy'
+
+  if [[ ! -s $conf ]]; then
+    mkdir -p ~/.config/mpv || return
+    printf '%s\n' "$comment" "$hwdec" >"$conf"
+  elif ! has_global_hwdec "$conf"; then
+    sed -i --follow-symlinks "1i $comment\n$hwdec" "$conf"
+  fi
+}
+
+# Options before the first [profile] and after a [default] line are global. A
+# profile line may end in a comment.
+has_global_hwdec() {
+  awk '
+    /^[[:space:]]*\[[^]]*\][[:space:]]*(#.*)?$/ { global = ($0 ~ /^[[:space:]]*\[default\][[:space:]]*(#.*)?$/); next }
+    global && /^[[:space:]]*hwdec[[:space:]]*=/ { found = 1 }
+    END { exit !found }
+  ' global=1 "$1"
+}
+
+if omarchy-hw-aarch64-qualcomm; then
+  setup_mpv
+fi

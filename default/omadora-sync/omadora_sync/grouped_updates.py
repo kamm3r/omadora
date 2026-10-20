@@ -308,8 +308,13 @@ def validate_kernel_modules(
         # registered on the ESP. limine-mkinitcpio regenerates every initramfs
         # with dracut and then re-registers each kernel, so a bare dracut run
         # would leave Limine booting stale images.
-        if command_finder("limine-mkinitcpio") is not None:
-            commands.append(["limine-mkinitcpio"])
+        # Fedora installs the shim in /usr/local/bin, which a privileged
+        # process's PATH may omit. Run its resolved path in either case.
+        limine_command = command_finder("limine-mkinitcpio") or command_finder(
+            "/usr/local/bin/limine-mkinitcpio"
+        )
+        if limine_command is not None:
+            commands.append([limine_command])
         elif command_finder("dracut") is not None:
             commands.append(["dracut", "-f", "--regenerate-all"])
         else:

@@ -36,7 +36,8 @@ for unit_file in "$unit_dir"/openclaw-gateway.service "$unit_dir"/openclaw-node.
     unit_stopped "$unit"; then
     # .bak is what `gateway install --force` leaves behind when it rewrites a
     # unit, so it goes with the unit.
-    rm -f "$unit_file" "$unit_file.bak" "$unit_dir/default.target.wants/$unit"
+    rm -f "$unit_file" "$unit_file.bak" "$unit_file".reconcile-*.bak "$unit_dir/default.target.wants/$unit"
+    rm -f "$HOME/.local/state/omarchy/openclaw-stopped/$role"
     systemctl --user daemon-reload 2>/dev/null || true
     # A unit that had been failing stays listed as "not-found failed" after
     # its file is gone until its failed state is reset.
@@ -48,6 +49,9 @@ for unit_file in "$unit_dir"/openclaw-gateway.service "$unit_dir"/openclaw-node.
 done
 
 omarchy-pkg-drop openclaw
+
+# Remove bookkeeping left by a deferred OpenClaw setup.
+rm -rf "$HOME/.local/state/omarchy/openclaw-stopped"
 
 # The web app launcher and icon omarchy-install-ai-openclaw created.
 rm -f "$HOME/.local/share/applications/OpenClaw.desktop"
@@ -63,7 +67,12 @@ gtk-update-icon-cache "$HOME/.local/share/icons/hicolor" &>/dev/null || true
 state_removed=false
 if [[ -d $HOME/.openclaw && -t 0 ]] && omarchy-cmd-present gum; then
   size=$(du -sh "$HOME/.openclaw" 2>/dev/null | cut -f1)
-  if gum confirm --default=false "Also delete ~/.openclaw ($size: chats, memories, credentials, and downloaded plugins)?"; then
+  # du glues the unit to the number ("1.2G"); write the number with the
+  # language's decimal separator and digits.
+  if [[ $size =~ ^([0-9]+([.,][0-9]+)?)([A-Za-z]*)$ ]] && number=$(omarchy-i18n --number "${BASH_REMATCH[1]/,/.}"); then
+    size="$number${BASH_REMATCH[3]}"
+  fi
+  if gum confirm --default=false --affirmative "$(omarchy-i18n common.yes)" --negative "$(omarchy-i18n common.no)" "$(omarchy-i18n openclaw.deleteData "$size")"; then
     rm -rf "$HOME/.openclaw"
     state_removed=true
   fi
