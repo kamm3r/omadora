@@ -3,6 +3,22 @@ notify_update() {
     --exec omarchy-launch-floating-terminal-with-presentation omarchy-update
 }
 
+# Check every Fedora repository package, then a development checkout when the
+# packages are current. DNF returns 100 for updates, 0 for none, and another
+# status on errors; only a definite "nothing" holds back the first-run prompt.
+update_pending() {
+  local status=0
+  dnf check-upgrade --quiet >/dev/null 2>&1 || status=$?
+
+  if (( status != 0 )); then
+    return 0
+  elif [[ $OMARCHY_PATH != "/usr/share/omarchy" ]]; then
+    omarchy-update-available >/dev/null 2>&1
+  else
+    return 1
+  fi
+}
+
 notify_wifi() {
   omarchy-notification-send -u critical -g 󰖩 "Setup Wi-Fi" "Click to configure the wireless network." \
     --exec omarchy-shell shell toggle omarchy.network
@@ -23,7 +39,9 @@ announce_network() {
     nm-online -q -t 3600 || return
   fi
 
-  notify_update
+  # A fresh install from current media has nothing to update, and a toast
+  # that leads nowhere teaches people to dismiss the next one.
+  update_pending && notify_update
 }
 
 # Detached, so a slow or absent connection never holds up the rest of first run.
