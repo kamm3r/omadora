@@ -25,6 +25,7 @@ case "$1" in
   -n) exit "${SUDO_CACHED:-1}" ;;
   -v) echo "sudo authenticated" >> "$CALL_LOG"; exit "${SUDO_V_STATUS:-0}" ;;
   dnf | fprintd-enroll) exec "$@" ;;
+  omarchy-lifecycle-dispatch) echo "dispatch ${*:2}" >> "$CALL_LOG"; exit "${ENABLE_STATUS:-0}" ;;
   sed) printf 'pam %s\n' "$*" >> "$CALL_LOG" ;;
   tee) printf 'pam %s\n' "$*" >> "$CALL_LOG"; cat >/dev/null ;;
   *) echo "Unexpected privileged call: $*" >> "$CALL_LOG"; exit 99 ;;
@@ -74,6 +75,14 @@ case "$*" in
   *"/net/reactivated/Fprint/Device/0 net.reactivated.Fprint.Device name"*) echo "s \"${READER_NAME:-Some USB reader}\"" ;;
   *) exit 1 ;;
 esac
+STUB
+# The dispatcher as the user: ENABLE_HOOK is what enable-fingerprint resolves
+# to (empty on a platform without one) and RESOLVE_STATUS its exit status.
+cat > "$scratch/bin/omarchy-lifecycle-dispatch" <<'STUB'
+#!/bin/bash
+echo "resolve ${*:2}" >> "$CALL_LOG"
+[[ ${RESOLVE_STATUS:-0} == 0 ]] || exit "$RESOLVE_STATUS"
+printf '%s\n' "${ENABLE_HOOK-/usr/lib/omarchy/mac/enable-fingerprint}"
 STUB
 chmod +x "$scratch/bin/"*
 export INSTALLED_LOG="$scratch/installed"
@@ -138,6 +147,41 @@ OMARCHY_PATH="$scratch" ENROLL_STATUS=0 VERIFY_STATUS=0 \
   fail "setup configures lock recovery once, after enrollment and verification"
 pass "setup reuses apply-lock after enrollment and verification"
 
+# A reader its platform keeps off until the owner agrees is turned on before
+# enrolling; one the owner doesn't turn on stops setup with nothing enrolled.
+[[ $(grep -E '^(resolve .*|dispatch .*|enroll)$' "$CALL_LOG") == $'resolve enable-fingerprint\ndispatch enable-fingerprint\nenroll' ]] ||
+  fail "the platform turns its reader on before enrollment, resolved as the user first" "$(cat "$CALL_LOG")"
+: > "$CALL_LOG"
+if INSTALLED=$'libfprint\nfprintd\nusbutils' ENABLE_STATUS=1 ENROLL_STATUS=0 VERIFY_STATUS=0 \
+  OMARCHY_PATH="$scratch" "$setup_script" > "$scratch/output" 2>&1; then
+  fail "a reader the owner doesn't turn on stops setup"
+fi
+! grep -Eq '^(enroll|verify|apply-lock|pam .*)$' "$CALL_LOG" && grep -q 'was not turned on, so nothing was enrolled' "$scratch/output" ||
+  fail "a reader that wasn't turned on is never enrolled, and setup says why" "$(cat "$CALL_LOG"; cat "$scratch/output")"
+# The owner may read past sudo's timeout, so sudo is checked again after the hook.
+: > "$CALL_LOG"
+INSTALLED=$'libfprint\nfprintd\nusbutils' ENROLL_STATUS=0 VERIFY_STATUS=0 \
+  OMARCHY_PATH="$scratch" "$setup_script" > "$scratch/output" 2>&1 || fail "setup with a platform hook succeeds"
+[[ $(grep -E '^(dispatch .*|sudo authenticated|enroll)$' "$CALL_LOG") == $'sudo authenticated\ndispatch enable-fingerprint\nsudo authenticated\nenroll' ]] &&
+  grep -qF "Confirm it's you again." "$scratch/output" ||
+  fail "sudo is checked again after the platform hook, before enrolling" "$(cat "$CALL_LOG")"
+pass "the platform turns its reader on before enrollment, and setup stops if it doesn't"
+
+# A platform with no hook runs nothing as root for it, and one whose hook can't
+# be resolved sets up the same way, saying so: a reader its platform keeps off
+# stays off, and any other reader enrolls as on every platform.
+: > "$CALL_LOG"
+INSTALLED=$'libfprint\nfprintd\nusbutils' ENABLE_HOOK= ENROLL_STATUS=0 VERIFY_STATUS=0 \
+  OMARCHY_PATH="$scratch" "$setup_script" > "$scratch/output" 2>&1 || fail "a platform without the hook sets up as before"
+! grep -q '^dispatch ' "$CALL_LOG" && grep -qx enroll "$CALL_LOG" ||
+  fail "a platform without the hook enrolls without a privileged dispatch" "$(cat "$CALL_LOG")"
+: > "$CALL_LOG"
+INSTALLED=$'libfprint\nfprintd\nusbutils' RESOLVE_STATUS=2 ENROLL_STATUS=0 VERIFY_STATUS=0 \
+  OMARCHY_PATH="$scratch" "$setup_script" > "$scratch/output" 2>&1 || fail "a hook that can't be resolved doesn't stop setup" "$(cat "$scratch/output")"
+! grep -q '^dispatch ' "$CALL_LOG" && grep -qx enroll "$CALL_LOG" && grep -q "couldn't be checked, so a reader the platform keeps off stays off" "$scratch/output" ||
+  fail "a hook that can't be resolved runs nothing as root, enrolls as before and says so" "$(cat "$CALL_LOG"; cat "$scratch/output")"
+pass "a platform without the hook runs nothing as root for it, and one that can't be told sets up as before"
+
 rm -f "$TEST_LOCK_PAM"
 if OMARCHY_PATH="$scratch" ENROLL_STATUS=0 VERIFY_STATUS=0 LOCK_SETUP_UNKNOWN=1 \
   "$setup_script" > "$scratch/output" 2>&1; then
@@ -152,17 +196,18 @@ pass "an inconclusive lock installer cannot report successful lock setup"
 # A press sensor, such as a Mac's Touch ID, takes a touch per sample, so setup
 # says to lift and touch again; a swipe sensor keeps the moving-finger
 # instruction, and one fprintd can't name is told neither.
-press_text="Touch the sensor, lift your finger and touch it again, and keep going until it says Enrolled. A step can take a few touches."
+press_text=$'Touch the sensor, lift your finger and touch it again.\nKeep going until it says Enrolled. A step can take a few touches.'
 swipe_text="Keep moving the finger around on sensor until it says Enrolled."
-unnamed_text="Touch or swipe the sensor, and keep going until it says Enrolled. A step can take a few tries."
+unnamed_text=$'Touch or swipe the sensor, and keep going until it says Enrolled.\nA step can take a few tries.'
 check_instruction() {
-  INSTALLED=$'libfprint-git\nfprintd\nusbutils' SCAN_TYPE=$1 run_setup
-  local text
+  INSTALLED=$'libfprint\nfprintd\nusbutils' SCAN_TYPE=$1 run_setup
+  local text output
+  output=$(<"$scratch/output")
   for text in "$press_text" "$swipe_text" "$unnamed_text"; do
     if [[ $text == "$2" ]]; then
-      grep -qF "$text" "$scratch/output" || fail "$3" "$(cat "$scratch/output")"
+      [[ $output == *"$text"* ]] || fail "$3" "$output"
     else
-      ! grep -qF "$text" "$scratch/output" || fail "$3" "$(cat "$scratch/output")"
+      [[ $output != *"$text"* ]] || fail "$3" "$output"
     fi
   done
 }
@@ -175,7 +220,7 @@ pass "each scan type gets its own instruction, and an unnamed one is told to tou
 # can't say which, so a press reader is never told to swipe.
 check_verify_prompt() {
   : > "$CALL_LOG"
-  INSTALLED=$'libfprint-git\nfprintd\nusbutils' SCAN_TYPE=$1 ENROLL_STATUS=0 VERIFY_STATUS=1 \
+  INSTALLED=$'libfprint\nfprintd\nusbutils' SCAN_TYPE=$1 ENROLL_STATUS=0 VERIFY_STATUS=1 \
     OMARCHY_PATH="$scratch" "$setup_script" > "$scratch/output" 2>&1 || true
   grep -qF "Now let's verify that it's working correctly. $2" "$scratch/output" ||
     fail "a ${1:-unnamed} sensor is asked to verify with: $2" "$(cat "$scratch/output")"
@@ -192,7 +237,7 @@ enroll_lines=$'Using device /net/reactivated/Fprint/Device/0\nEnrolling right-in
 for result in stage-passed stage-passed retry-scan stage-passed unknown-error; do
   enroll_lines+=$'\nEnroll result: enroll-'$result
 done
-INSTALLED=$'libfprint-git\nfprintd\nusbutils' SCAN_TYPE=press READER_NAME='Apple secure enclave fingerprint sensor' \
+INSTALLED=$'libfprint\nfprintd\nusbutils' SCAN_TYPE=press READER_NAME='Apple secure enclave fingerprint sensor' \
   ENROLL_OUTPUT=$enroll_lines run_setup
 expected=$'  ✓ Step 1 done. Keep lifting your finger and touching the sensor.
   That one didn\'t read. Keep lifting your finger and touching the sensor.
@@ -207,7 +252,7 @@ pass "enrollment results read as instructions, and a failed enrollment still fai
 # A failed verify fails setup and leaves PAM and the lock screen alone; the
 # success path's order is checked above.
 : > "$CALL_LOG"
-if INSTALLED=$'libfprint-git\nfprintd\nusbutils' SCAN_TYPE=press ENROLL_STATUS=0 VERIFY_STATUS=1 \
+if INSTALLED=$'libfprint\nfprintd\nusbutils' SCAN_TYPE=press ENROLL_STATUS=0 VERIFY_STATUS=1 \
   OMARCHY_PATH="$scratch" "$setup_script" > "$scratch/output" 2>&1; then
   fail "a failed verify fails setup" "$(cat "$scratch/output")"
 fi
@@ -231,10 +276,10 @@ pass "verify results read as instructions"
 # Only Touch ID's first stage is its duplicate check. On any other reader, one
 # that doesn't identify or one whose duplicate check took a touch, the first
 # stage to pass is step 1.
-INSTALLED=$'libfprint-git\nfprintd\nusbutils' SCAN_TYPE=press ENROLL_OUTPUT=$enroll_lines run_setup
+INSTALLED=$'libfprint\nfprintd\nusbutils' SCAN_TYPE=press ENROLL_OUTPUT=$enroll_lines run_setup
 [[ $(grep -c 'Step [0-9] done' "$scratch/output") == 3 ]] ||
   fail "another reader's first stage is step 1" "$(cat "$scratch/output")"
-INSTALLED=$'libfprint-git\nfprintd\nusbutils' ENROLL_OUTPUT=$enroll_lines run_setup
+INSTALLED=$'libfprint\nfprintd\nusbutils' ENROLL_OUTPUT=$enroll_lines run_setup
 [[ $(grep -c 'Step [0-9] done' "$scratch/output") == 3 ]] ||
   fail "a reader fprintd can't name has its first stage counted" "$(cat "$scratch/output")"
 [[ $(printf '%s\n' 'Enroll result: enroll-stage-passed' 'Enroll result: enroll-stage-passed' | enroll_progress "Again." 1) == \
@@ -243,12 +288,12 @@ pass "only a reader with a duplicate check leaves its first stage out of the ste
 
 # sudo's own prompt comes first and is named as such; with sudo already
 # authenticated there is no prompt to explain.
-INSTALLED=$'libfprint-git\nfprintd\nusbutils' SCAN_TYPE=press run_setup
+INSTALLED=$'libfprint\nfprintd\nusbutils' SCAN_TYPE=press run_setup
 grep -qF "First, confirm it's you." "$scratch/output" && grep -qx 'sudo authenticated' "$CALL_LOG" ||
   fail "setup names sudo's prompt and authenticates before enrolling" "$(cat "$scratch/output")"
 (( $(grep -n "First, confirm it's you." "$scratch/output" | cut -d: -f1) < $(grep -n "Let's set up" "$scratch/output" | cut -d: -f1) )) ||
   fail "sudo's prompt comes before the enrollment instructions" "$(cat "$scratch/output")"
-INSTALLED=$'libfprint-git\nfprintd\nusbutils' SCAN_TYPE=press SUDO_CACHED=0 run_setup
+INSTALLED=$'libfprint\nfprintd\nusbutils' SCAN_TYPE=press SUDO_CACHED=0 run_setup
 ! grep -qF "First, confirm it's you." "$scratch/output" && ! grep -qx 'sudo authenticated' "$CALL_LOG" ||
   fail "an authenticated sudo is not asked again" "$(cat "$scratch/output")"
 pass "sudo is authenticated, and named, before the enrollment instructions"
@@ -264,7 +309,7 @@ pass "sudo is authenticated, and named, before the enrollment instructions"
 pass "fprintd's reasons for stopping reach the owner, its routine lines do not"
 
 # A sudo that won't authenticate stops setup with a reason, before enrolling.
-INSTALLED=$'libfprint-git\nfprintd\nusbutils' SCAN_TYPE=press SUDO_V_STATUS=1 run_setup
+INSTALLED=$'libfprint\nfprintd\nusbutils' SCAN_TYPE=press SUDO_V_STATUS=1 run_setup
 grep -qF "Setup needs administrator rights to enroll a fingerprint." "$scratch/output" && ! grep -qx enroll "$CALL_LOG" ||
   fail "a failed sudo stops setup with a reason" "$(cat "$scratch/output")"
 pass "a failed sudo stops setup with a reason, before enrolling"

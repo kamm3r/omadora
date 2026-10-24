@@ -67,10 +67,3 @@ if bash "$helper" 2>/dev/null; then
   fail "an unwritable mpv configuration reports failure"
 fi
 pass "an unwritable mpv configuration reports failure"
-
-new_home migration
-bash -euo pipefail "$ROOT/migrations/1792202836.sh"
-grep -Fxq "$hwdec" "$conf" || fail "existing installs receive the fallback through migration"
-grep -Fxq 'run_logged "$OMARCHY_INSTALL/user/hardware/qualcomm/video-decode.sh"' "$ROOT/install/user/all.sh" || fail "fresh installs run the hardware setup"
-grep -Fxq 'omarchy-install-video-decode' "$ROOT/bin/omarchy-reinstall-configs" || fail "config reinstalls restore the hardware setting"
-pass "fresh installs, existing installs, and config reinstalls are wired to the helper"

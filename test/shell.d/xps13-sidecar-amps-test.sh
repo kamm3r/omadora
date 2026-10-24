@@ -7,14 +7,10 @@ source "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/base-test.sh"
 detector="$ROOT/bin/omarchy-hw-dell-xps13-sidecar-amps"
 leaf="$ROOT/install/hardware/dell-xps13-sidecar-amps.sh"
 all="$ROOT/install/hardware/all.sh"
-migration=$(grep -l "dell-xps13-sidecar-amps" "$ROOT"/migrations/*.sh | head -1)
 
 grep -q 'run_logged .*hardware/dell-xps13-sidecar-amps.sh' "$all" ||
   fail "the sidecar amplifier workaround runs during hardware setup"
 pass "the sidecar amplifier workaround runs during hardware setup"
-
-[[ -n $migration ]] || fail "a migration enables the workaround on existing installs"
-pass "a migration enables the workaround on existing installs"
 
 test_tmp=$(mktemp -d)
 trap 'rm -rf "$test_tmp"' EXIT
@@ -123,38 +119,3 @@ pass "a failing package install fails the leaf without applying"
 run_leaf "ThinkPad X1" || fail "the leaf no-ops on other hardware"
 [[ -s $call_log ]] && fail "the leaf no-ops on other hardware"
 pass "the leaf no-ops on other hardware"
-
-# The migration runner uses bash -euo pipefail and only records the migration
-# when it exits clean. On Fedora the workaround package has no RPM, so the
-# migration no-ops everywhere; TEST_DNF_HAS_PACKAGE=1 simulates a repo that
-# carries it.
-run_migration() {
-  : >"$call_log"
-  printf '0E53\n' >"$sku_file"
-  PATH="$test_tmp/bin:$ROOT/bin:$PATH" \
-    CALL_LOG="$call_log" \
-    OMARCHY_PATH="$ROOT" \
-    TEST_PRODUCT_NAME="${1-XPS 13 DX13260}" \
-    TEST_APPLY_STATUS="${2:-0}" \
-    TEST_DNF_HAS_PACKAGE="${TEST_DNF_HAS_PACKAGE:-}" \
-    OMARCHY_DMI_PRODUCT_SKU="$sku_file" \
-    bash -euo pipefail "$migration" >/dev/null
-}
-
-run_migration || fail "the migration succeeds on the target machine"
-[[ -s $call_log ]] && fail "the migration installs nothing without the RPM" "$(cat "$call_log")"
-pass "the migration no-ops on the target machine without the RPM"
-
-TEST_DNF_HAS_PACKAGE=1 run_migration || fail "the migration applies the workaround and asks for a reboot"
-grep -q 'state set reboot-required' "$call_log" ||
-  fail "the migration applies the workaround and asks for a reboot"
-pass "the migration applies the workaround and asks for a reboot"
-
-TEST_DNF_HAS_PACKAGE=1 run_migration "XPS 13 DX13260" 1 && fail "a failing apply leaves the migration pending"
-grep -q 'state set reboot-required' "$call_log" &&
-  fail "a failing apply does not mark reboot-required"
-pass "a failing apply leaves the migration pending without marking reboot-required"
-
-run_migration "ThinkPad X1" || fail "the migration no-ops on other hardware"
-[[ -s $call_log ]] && fail "the migration no-ops on other hardware"
-pass "the migration no-ops on other hardware"

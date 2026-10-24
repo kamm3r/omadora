@@ -154,6 +154,8 @@ logo.{txt,svg}, icon.{txt,png}  ──► omarchy-settings    /usr/share/omarchy
 
 The hardware-conditional `force-igpu` and `keyboard-backlight` sources also live under `default/systemd/system-sleep/`, but their setup commands publish root-owned copies only on machines that need them; they are not installed by `omarchy-settings`.
 
+Fingerprint removal (`omarchy-remove-security-fingerprint`) authenticates `sudo` in the terminal, then calls `fprintd-delete` before stopping fprintd to clear device-stored prints too. An unavailable reader or failed deletion is reported while local authentication removal continues. Optional platform hooks turn a reader on with the owner’s agreement before enrollment and turn it off after fingerprint removal; see [lifecycle-dispatch.md](lifecycle-dispatch.md#fingerprint-setup-and-removal-binomarchy-setup-security-fingerprint-binomarchy-remove-security-fingerprint).
+
 ### Why `etc-overrides/` exists
 
 Some files under `/etc/` (`.bashrc` in `/etc/skel`, `security/faillock.conf`,
