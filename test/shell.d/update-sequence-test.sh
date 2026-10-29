@@ -94,6 +94,11 @@ run_update -y || fail "an update where everything works reports a failure"
 diff <(expected_steps) <(steps_run) >"$test_tmp/order" ||
   fail "an update where everything works does not run every step in order" "$(cat "$test_tmp/order")"
 pass "an update where every step works runs all of them, in order"
+for action in pause resume; do
+  grep -Fx "sudo $SUDO_TEST_ROOT/bin/omarchy-hyprland-reload-guard $action" "$SUDO_TEST_LOG" >/dev/null ||
+    fail "the update runs the reload guard's $action through its root boundary"
+done
+pass "the update runs the reload guard through its root boundary"
 [[ $(cat "$test_tmp/steps.orphan-args") == "-y" ]] || fail "an unattended update approves orphan removal"
 pass "an unattended update approves orphan removal"
 [[ $(cat "$test_tmp/steps.shell-args") == "-q omarchy.system-update clear" ]] ||

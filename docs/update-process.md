@@ -70,9 +70,9 @@ guard is a check run by wrappers around direct upgrades. `bin/omarchy-update`
 brackets its package transaction with the Hyprland reload guard instead:
 
 ```bash
-omarchy-hyprland-reload-guard pause
+sudo "$OMARCHY_PATH/bin/omarchy-hyprland-reload-guard" pause
 omarchy-update-system-pkgs
-omarchy-hyprland-reload-guard resume
+sudo "$OMARCHY_PATH/bin/omarchy-hyprland-reload-guard" resume
 ```
 
 which replaces the Arch ALPM pause/resume hooks that disabled live Hyprland
@@ -146,7 +146,7 @@ Important behavior:
 - This lifecycle controls authorization created by the protected workflow. `sudo -N` prevents cache updates but can use an existing valid credential, and `sudo -k` revokes the current session's timestamp. It does not isolate the account from unrelated concurrent authentication in another workflow.
 - Sleep inhibition authenticates before detaching (`sudo -N -b` from a terminal, `pkexec` without one; inside an update it reuses the update's authorization with a non-interactive `sudo` and falls back to `pkexec` only if that authorization is gone), drops the held command back to the caller with `setpriv`, and closes both update lock descriptors before the persistent process starts. Cleanup accepts only caller-owned, mode-0600, single-link state and revalidates the recorded PID, process start time, owner, and random token immediately before every signal. The inhibitor covers hooks, mise, and the Flatpak step, and is released before the reboot prompt — releasing it needs no privilege, and a confirmed reboot could otherwise end the update before its EXIT trap clears the Stay Awake marker.
 - Channel switching (`omarchy-channel-set`) establishes the same boundary before dev link/unlink, refresh, and package operations. It keeps the wrapper first on PATH when changing source roots, carries the original user PATH into update hooks and mise through `OMARCHY_UPDATE_USER_PATH`, and checks after each package transaction — the `omarchy-refresh-pacman` upgrade and, once Omadora ships channel RPMs, the `dnf install` of the channel packages — that the wrapper still exists before any further privileged step, since a transaction can replace the running tree with a release that predates it. When it is gone, or the destination otherwise lacks it, the switch stops after the package switch with instructions to run that release's `omarchy update` from a fresh terminal, rather than letting a bare `sudo` or an updater that authenticates without `--no-update` publish a timestamp. Switching to `dev` checks the checkout for the wrapper, `omarchy-security-functions`, `omarchy-update`, and `omarchy-refresh-pacman` before linking and refuses a checkout that predates them. Failed and interrupted channel switches revoke on exit.
-- `-y` exports `OMARCHY_UPDATE_UNATTENDED=1` and suppresses Omarchy confirmation prompts. Interactive steps report and skip instead of blocking: the conflict handoff and the reboot prompt check `OMARCHY_UPDATE_UNATTENDED`. Orphan packages are automatically removed during every update. Privileged commands still require the one sudo authorization; the Flatpak step needs none.
+- `-y` exports `OMARCHY_UPDATE_UNATTENDED=1` and suppresses Omarchy confirmation prompts. Interactive steps report and skip instead of blocking: the conflict handoff and the reboot prompt check `OMARCHY_UPDATE_UNATTENDED`. Orphan packages are automatically removed during Fedora updates. When Nobara's updater is installed, generic orphan cleanup is skipped because its codec protections also cover dependency providers that DNF may label unneeded. Privileged commands still require the one sudo authorization; the Flatpak step needs none.
 - The free-space requirement uses a 10 GiB threshold and stops the update before
   confirmation when it is not met. If free space cannot be determined, the
   check is silently skipped. Set `OMARCHY_UPDATE_FORCE=1` to bypass the check.

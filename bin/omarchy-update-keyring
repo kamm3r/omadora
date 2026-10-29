@@ -17,5 +17,7 @@ sudo dnf install -y fedora-gpg-keys >/dev/null
 # Say "correct" only once the keys verifiably are: before the failure checks
 # above, a failed install still ended here with exit 0.
 rpm -q fedora-gpg-keys >/dev/null
-rpm -qa gpg-pubkey --queryformat '%{NAME} %{VERSION}\n' 2>/dev/null | grep -qi gpg-pubkey
+# Read every row: grep -q can close the pipe while RPM is still writing,
+# making a healthy keyring fail with SIGPIPE under pipefail.
+rpm -qa gpg-pubkey --queryformat '%{NAME} %{VERSION}\n' 2>/dev/null | grep -i gpg-pubkey >/dev/null
 echo "Keys are correct"

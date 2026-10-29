@@ -40,10 +40,13 @@ if [[ $1 == "-q" ]]; then
 fi
 
 if [[ $1 == "-qa" ]]; then
+  if [[ -n ${KEYRING_TEST_MANY_PUBKEYS:-} ]]; then
+    exec python3 -c 'import os, signal; signal.signal(signal.SIGPIPE, signal.SIG_DFL); os.write(1, b"gpg-pubkey 38ab71f4\n" * 16384)'
+  fi
   if [[ -z ${KEYRING_TEST_NO_PUBKEY:-} ]]; then
     printf 'gpg-pubkey 38ab71f4\n'
   fi
-  exit 0
+  exit "${KEYRING_TEST_RPM_QA_STATUS:-0}"
 fi
 
 echo "Unexpected rpm call: $*" >&2
@@ -68,6 +71,15 @@ pass "update-keyring reports success when the keyring is healthy"
 grep -Eq $'^sudo\tdnf\tinstall\t-y\tfedora-gpg-keys$' "$log_file" ||
   fail "update-keyring still reinstalls fedora-gpg-keys" "$(cat "$log_file")"
 pass "update-keyring still reinstalls fedora-gpg-keys"
+
+KEYRING_TEST_MANY_PUBKEYS=1 run_keyring >"$test_tmp/many.out" ||
+  fail "a large signing-key list is read without breaking RPM's output pipe"
+pass "a large signing-key list is read without breaking RPM's output pipe"
+
+if KEYRING_TEST_RPM_QA_STATUS=1 run_keyring >"$test_tmp/query.out" 2>&1; then
+  fail "a failed key enumeration is not hidden by matching output"
+fi
+pass "a failed key enumeration is not hidden by matching output"
 
 # A failed install must stop the script, not end in "Keys are correct".
 : >"$log_file"

@@ -26,6 +26,8 @@ run_orphan_checker() {
   HOME="$test_home" PATH="$stub_bin:$ROOT/bin:$PATH" "$ROOT/bin/omarchy-update-orphan-pkgs" "$@"
 }
 
+write_stub omarchy-pkg-present '[[ $* == "nobara-updater" && ${NOBARA_UPDATER_PRESENT:-0} == 1 ]]'
+
 write_stub dnf 'if [[ $1 == "repoquery" ]]; then printf "old-lib\nunused-tool\n"; exit 0; fi; exit 1'
 write_stub sudo 'echo "sudo should not be called" >&2; exit 99'
 write_stub gum 'echo "gum should not be called" >&2; exit 99'
@@ -61,3 +63,12 @@ for mode in "" -y; do
 done
 [[ ! -e $REMOVAL_LOG ]] || fail "orphan checker does not remove packages when no orphans exist"
 pass "orphan checker stays quiet without orphans"
+
+# Nobara's codec guard protects dependencies that DNF can still call unneeded.
+# Cleanup must not try that transaction or abort the rest of an update.
+write_stub dnf 'if [[ $1 == "repoquery" ]]; then echo libattr.i686; exit 0; fi; exit 1'
+write_stub sudo 'echo attempted >"$REMOVAL_LOG"; exit 99'
+NOBARA_UPDATER_PRESENT=1 run_orphan_checker -y >"$test_tmp/nobara.out" 2>"$test_tmp/nobara.err" ||
+  fail "Nobara leaves orphan cleanup to its package manager without failing the update"
+[[ ! -e $REMOVAL_LOG ]] || fail "Nobara orphan cleanup attempts no removal"
+pass "Nobara leaves orphan cleanup to its package manager without failing the update"

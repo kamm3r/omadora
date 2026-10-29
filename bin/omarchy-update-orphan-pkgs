@@ -7,6 +7,14 @@
 
 set -e
 
+# Nobara protects codec packages and their dependency providers, including
+# packages DNF labels unneeded. Generic autoremove can violate that policy;
+# leave cleanup to Nobara instead of aborting an otherwise successful update.
+if omarchy-pkg-present nobara-updater; then
+  echo "Skipping orphan cleanup: Nobara manages codec packages and their dependencies."
+  exit 0
+fi
+
 mapfile -t orphans < <(dnf repoquery --unneeded -q 2>/dev/null | grep -v '^Last metadata' || true)
 (( ${#orphans[@]} )) || exit 0
 
