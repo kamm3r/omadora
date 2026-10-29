@@ -137,7 +137,7 @@ plocate
 plymouth
 plymouth-plugin-script
 libpq
-power-profiles-daemon
+omarchy-power-profiles-daemon
 python3-gobject
 python3-poetry-core
 ttf-ia-writer
