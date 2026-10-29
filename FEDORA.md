@@ -93,8 +93,7 @@ The default package list explicitly includes `hyprland-preview-share-picker` for
   `archlinux-keyring`/`pacman-key`, and fails loudly like upstream when the
   install or the verification fails instead of printing success anyway.
 - `bin/omarchy-update-dnf` is the Fedora analog of upstream's hidden
-  `bin/omarchy-update-pacman`: it runs update transactions (`dnf ...`,
-  `omadora-sync cli`) as a PID 1 `systemd-run --scope` so a mid-transaction
+  `bin/omarchy-update-pacman`: it runs update transactions (`dnf ...`) as a PID 1 `systemd-run --scope` so a mid-transaction
   systemd reexec cannot SIGKILL them, and sets `OMARCHY_UPDATE_DNF=1` for the
   guard. All update-flow callers (`update-system-pkgs`, `refresh-pacman`,
   `reinstall-pkgs`, `channel-set`) go through it.
@@ -152,8 +151,9 @@ full Arch-to-Fedora map and the dropped list.
 The Limine stack is packaged in [kamm3r/limine-pkg](https://github.com/kamm3r/limine-pkg) and published in `kammer/limine` for Fedora 44 x86_64.
 
 - `install/fedora/repos.sh` enables the repository. `install/fedora/bootloader.sh` also enables it when run independently and explicitly selects it to install `limine`, `limine-entry-tool`, `limine-snapper-sync`, and `limine-dracut`.
-- `limine-dracut` owns `/usr/bin/limine-mkinitcpio` (the dracut-backed compatibility command), `/usr/bin/limine-update`, kernel-install configuration, the dracut override, and `/usr/lib/kernel/install.d/96-limine.install`. The installer no longer copies source helpers over those files or installs commands under `/usr/local`.
-- Kernel-install uses `layout=other` and `/boot` image paths; the dracut plugin explicitly names `/boot/initramfs-<kver>.img`, and the Limine plugin registers added kernels and removes deleted ones. Other layouts are delegated to Fedora's dracut plugin.
+- `limine-dracut` 0.2.0 or newer owns `/usr/bin/limine-mkinitcpio` (the dracut-backed compatibility command), `/usr/bin/limine-update`, kernel-install configuration, the dracut override, and `/usr/lib/kernel/install.d/96-limine.install`. The installer no longer copies source helpers over those files or installs commands under `/usr/local`.
+- Kernel-install uses `layout=other`; Fedora's dracut plugin names `/boot/initramfs-<kver>.img`. With `ENABLE_UKI=yes`, the Limine plugin builds a reproducible UKI through dracut and registers it through the upstream entry tool, which owns the ESP filename. Split images remain supported when UKIs are disabled. Versioned Fedora kernels prefer the newest installed version through a generated drop-in; `/etc/default/limine` overrides it. Other layouts are delegated to Fedora's dracut plugin.
+- RPM transaction file triggers replace upstream EFI-deploy and image-refresh ALPM hooks, including image refresh after firmware, systemd, cryptsetup, LVM, module or dracut changes. `limine-update` deploys firmware and rebuilds images like upstream. Direct Boot resolves the actual ESP instead of assuming `/boot`; upstream firmware guards remain unchanged. See [Fedora boot parity](docs/fedora-boot-parity.md) for verification and capacity limits.
 - Omadora keeps its boot-menu defaults, entry-tool drop-ins, dracut policy, hardware settings, and explicit first-install image rebuild. Existing source-installed machines require an explicit helper migration; old migration scripts and their source fixtures remain for historical compatibility.
 - `etc/dracut.conf.d/omarchy.conf` replaces the mkinitcpio `HOOKS=` list
   (`etc/mkinitcpio.conf.d/omarchy_hooks.conf` stays in tree as reference).

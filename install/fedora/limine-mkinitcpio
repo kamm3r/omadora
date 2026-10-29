@@ -1,21 +1,66 @@
 #!/bin/bash
-# Fedora implementation of the limine-mkinitcpio helper from Arch's
-# limine-mkinitcpio-hook: rebuilds initramfs images via dracut, then syncs ESP
-# copies and limine.conf entries. Same name and contract, so all existing
-# callers (hibernation setup, hardware quirks, plymouth theming) work unchanged.
-set -euo pipefail
+# Fedora equivalent of upstream's Limine image rebuild: dracut creates the
+# images, and limine-entry-tool owns their ESP paths and menu entries.
+set -eo pipefail
 
-# Name each image instead of letting dracut choose. Without an output path,
-# dracut writes to <ESP>/<machine-id>/<kver>/initrd whenever the machine-id
-# directory exists, and limine-entry-tool creates exactly that directory for
-# its kernel copies, so every run after the first fails on a missing
-# directory.
+source /usr/lib/limine/limine-common-functions
+# kernel-install supplies a version; an explicit rebuild processes all kernels.
+if (( $# > 1 )) || [[ ${1:-} == */* ]]; then
+  echo "Usage: limine-mkinitcpio [kernel-version]" >&2
+  exit 2
+fi
+
+mutex_lock limine-mkinitcpio
+
+# Fedora retains versioned kernels; upstream replaces a stable kernel name.
+# Prefer the newest installed version while retaining the older boot entries.
+# /etc/default/limine remains the administrator's highest-priority override.
+newest=$(for kernel in /usr/lib/modules/*/vmlinuz; do
+  [[ -f $kernel ]] || continue
+  basename "${kernel%/vmlinuz}"
+done | sort -V | tail -n 1)
+if [[ -n $newest ]]; then
+  mkdir -p /etc/limine-entry-tool.d
+  printf 'BOOT_ORDER="kernel-%s, *, *fallback, Snapshots"\n' "$newest" > /etc/limine-entry-tool.d/zz-fedora-kernel.conf
+fi
+initialize_header
+
+work=$(mktemp -d /var/tmp/limine-dracut.XXXXXX)
+trap 'rm -rf "$work"' EXIT
+run_boot_hooks pre
+
 shopt -s nullglob
-for kdir in /usr/lib/modules/*/; do
-  kver="$(basename "$kdir")"
-  [[ -f $kdir/vmlinuz ]] || continue
-  initrd="/boot/initramfs-$kver.img"
-  dracut -f "$initrd" "$kver"
-  echo "Registering kernel-$kver"
-  /usr/local/bin/limine-entry-tool --add-kernel "kernel-$kver" "${kdir}vmlinuz" "$initrd" --quiet
+kernels=(/usr/lib/modules/*/)
+if (( $# )); then
+  kernels=("/usr/lib/modules/$1/")
+  [[ -f ${kernels[0]}vmlinuz ]] || { echo "Kernel $1 is missing" >&2; exit 1; }
+fi
+
+for kdir in "${kernels[@]}"; do
+  [[ -f ${kdir}vmlinuz ]] || continue
+  kver=$(basename "$kdir")
+  name="kernel-$kver"
+  options=(--force --reproducible --hostonly --no-hostonly-cmdline --kver "$kver")
+  if is_uefi && [[ ${ENABLE_UKI:-no} == "yes" ]]; then
+    # Like upstream, let Limine supply the command line for signed snapshot
+    # boots; otherwise embed the resolved command line for firmware Direct Boot.
+    cmdline=()
+    if ! { is_sb_installed && is_snapper_installed; }; then
+      resolved=$(/usr/bin/limine-entry-tool --get-cmdline "$name" --no-mutex --no-hooks | tail -n 1)
+      cmdline=(--kernel-cmdline "$resolved")
+    fi
+    image="$work/$name.efi"
+    dracut "${options[@]}" --uefi --kernel-image "${kdir}vmlinuz" "${cmdline[@]}" "$image"
+    sb_sign "$image"
+    /usr/bin/limine-entry-tool --add-uki "$name" "$image" --no-mutex --no-hooks --quiet
+    # Remove split files only after the UKI and its entry were installed.
+    /usr/bin/limine-entry-tool --remove-kernel "$name" --no-mutex --no-hooks --quiet
+  else
+    image="/boot/initramfs-$kver.img"
+    dracut "${options[@]}" --no-uefi "$image"
+    /usr/bin/limine-entry-tool --add-kernel "$name" "${kdir}vmlinuz" "$image" --no-mutex --no-hooks --quiet
+  fi
 done
+
+run_boot_hooks post
+mutex_unlock

@@ -17,7 +17,7 @@ pass "kernel-install keeps Fedora's /boot layout"
 
 grep -q 'dnf copr enable -y kammer/limine' "$ROOT/install/fedora/bootloader.sh" &&
   grep -q -- '--from-repo=copr:copr.fedorainfracloud.org:kammer:limine' "$ROOT/install/fedora/bootloader.sh" &&
-  grep -q 'limine limine-entry-tool limine-snapper-sync limine-dracut' "$ROOT/install/fedora/bootloader.sh" ||
+  grep -Fq "limine limine-entry-tool limine-snapper-sync 'limine-dracut >= 0.2.0'" "$ROOT/install/fedora/bootloader.sh" ||
   fail "the bootloader installer selects the packaged Limine stack"
 if grep -Eq 'install .*(/usr/local/|/etc/kernel/)' "$ROOT/install/fedora/bootloader.sh"; then
   fail "the installer must not overwrite RPM-owned boot integration"
@@ -29,7 +29,7 @@ pass "the bootloader installer selects packaged integration without overwriting 
 # The plugin's paths are fixed literals; retarget a scratch copy at a fake /boot
 # and a stub limine-entry-tool that records its arguments.
 grep -Fxq 'boot_dir=/boot' "$plugin" || fail "the plugin reads kernels from /boot"
-grep -Fxq 'for candidate in /usr/local/bin/limine-entry-tool /usr/bin/limine-entry-tool; do' "$plugin" ||
+grep -Fxq 'limine_entry_tool=/usr/bin/limine-entry-tool' "$plugin" ||
   fail "the plugin calls limine-entry-tool by absolute path"
 [[ -x $plugin ]] || fail "the plugin is executable"
 pass "the plugin uses fixed paths and is executable"
@@ -45,11 +45,13 @@ STUB
 chmod +x "$test_dir/limine-entry-tool"
 
 sed -e "s|^boot_dir=/boot$|boot_dir=$boot|" \
-  -e "s|^for candidate in /usr/local/bin/limine-entry-tool /usr/bin/limine-entry-tool; do$|for candidate in $test_dir/limine-entry-tool; do|" \
+  -e "s|^limine_entry_tool=/usr/bin/limine-entry-tool$|limine_entry_tool=$test_dir/limine-entry-tool|" \
+  -e "s|^    source /usr/lib/limine/limine-common-functions$|    source $test_dir/common|" \
   "$plugin" >"$test_dir/plugin"
-sed -e "s|^for candidate in /usr/local/bin/limine-entry-tool /usr/bin/limine-entry-tool; do$|for candidate in $test_dir/absent; do|" \
+sed -e "s|^limine_entry_tool=/usr/bin/limine-entry-tool$|limine_entry_tool=$test_dir/absent|" \
   "$plugin" >"$test_dir/plugin-without-limine"
 
+printf 'load_config() { :; }\nis_uefi() { return 1; }\n' >"$test_dir/common"
 version=7.2.6-201.fc44.x86_64
 : >"$calls"
 if bash "$test_dir/plugin" add "$version" 2>/dev/null; then fail "a kernel without an initramfs is not registered"; fi
@@ -64,11 +66,11 @@ pass "adding a kernel registers it with its kernel image before its initramfs"
 
 : >"$calls"
 bash "$test_dir/plugin" remove "$version" || fail "removing a kernel drops its entry"
-[[ $(<"$calls") == "--remove-kernel kernel-$version --quiet" ]] || fail "removing a kernel drops its entry" "$(<"$calls")"
+[[ $(tail -n 1 "$calls") == "--remove-kernel kernel-$version --quiet" ]] || fail "removing a kernel drops its entry" "$(<"$calls")"
 touch "$test_dir/tool-fails"
-bash "$test_dir/plugin" remove "$version" 2>/dev/null || fail "a failed entry removal does not fail the kernel removal"
+if bash "$test_dir/plugin" remove "$version" 2>/dev/null; then fail "a failed entry removal must fail the kernel removal"; fi
 rm "$test_dir/tool-fails"
-pass "removing a kernel drops its entry, and a failed drop does not fail the removal"
+pass "removing a kernel drops its entry and reports a failed drop"
 
 : >"$calls"
 bash "$test_dir/plugin-without-limine" add "$version" || fail "a machine without Limine is left alone"
@@ -248,3 +250,13 @@ OMARCHY_PATH="$ROOT" PATH="$test_dir/bin:$PATH" bash -euo pipefail "$finish" >"$
   fail "the follow-up migration skips a machine without Limine" "$(<"$test_dir/output")"
 [[ ! -s $calls && ! -e $etc/kernel ]] || fail "the follow-up migration leaves a machine without Limine alone" "$(<"$calls")"
 pass "the follow-up migration leaves a machine without Limine alone"
+
+# A UKI-enabled kernel update must use the UKI builder, not re-register split
+# images after the dracut hook finishes.
+printf 'load_config() { ENABLE_UKI=yes; }\nis_uefi() { return 0; }\n' >"$test_dir/common"
+printf '#!/bin/bash\nprintf "rebuild %%s\\n" "$*" >"%s"\n' "$calls" >"$test_dir/rebuild"
+chmod +x "$test_dir/rebuild"
+sed "s|/usr/bin/limine-mkinitcpio|$test_dir/rebuild|" "$test_dir/plugin" >"$test_dir/plugin-uki"
+bash "$test_dir/plugin-uki" add "$version" || fail "UKI-enabled kernel updates invoke the image builder"
+[[ $(cat "$calls") == "rebuild $version" ]] || fail "kernel-install selects the requested kernel for UKI generation"
+pass "UKI-enabled kernel updates delegate to the per-kernel image builder"

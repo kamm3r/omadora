@@ -1,10 +1,6 @@
 #!/bin/bash
-# Fedora implementation of the limine-update helper from Arch's
-# limine-entry-tool package: re-deploys the Limine bootloader binaries to the
-# ESP. Boot entry contents themselves are managed separately by
-# limine-entry-tool, limine-mkinitcpio, and limine-snapper-sync, so callers
-# that need entries refreshed invoke those directly. Same name and contract,
-# so all existing callers work unchanged.
+# Match upstream limine-update: deploy firmware, then rebuild boot images.
 set -euo pipefail
 
-limine-install "$@"
+/usr/bin/limine-install --no-efi-register
+/usr/bin/limine-mkinitcpio "$@"
