@@ -74,24 +74,7 @@ The default package list explicitly includes `hyprland-preview-share-picker` for
   Flathub repo, and `omarchy-update-aur-pkgs` runs `flatpak update --user`.
   RPM-land third-party sources (COPR, RPM Fusion, Terra) ride along with the
   regular `dnf upgrade`.
-- `bin/omarchy-update-system-pkgs` runs `omadora-sync cli` on every host:
-  Omadora's terminal-only copy of Nobara's `nobara-sync` (GPL-3.0-or-later,
-  kept with its license and change list in `default/omadora-sync/`). It
-  upgrades in groups (kernel, graphics stack, system core, Hyprland desktop,
-  the rest) with per-group rollback, rebuilds akmods/dkms modules and boot
-  images through `limine-mkinitcpio` so Limine never boots stale images, and
-  records `reboot-required` for `omarchy-update-restart` instead of prompting.
-  It needs `python3-libdnf5`; until migration `1790412898.sh` installs it, an
-  older install's first update runs plain `dnf upgrade -y`. It is command-line
-  only, and the update never launches `nobara-sync`, a GTK application even in
-  its CLI modes: on Nobara hosts, Nobara's own repairs are
-  `nobara-sync install-fixups`, run by hand.
-  User Flatpaks stay on `omarchy-update-aur-pkgs`. The conflict handler parses
-  the dnf-format problems omadora-sync writes to stderr; a failed group has
-  already rolled itself back, so anything unmatched lands with a human. The
-  handler's interactive retry is plain `dnf upgrade --allowerasing`.
-  `omadora-sync` is the one command in `bin/` outside the `omarchy-` prefix,
-  by name.
+- `bin/omarchy-update-system-pkgs` runs a direct `dnf upgrade -y` through `omarchy-update-dnf`, matching upstream's single package-manager transaction flow. Kernel RPM scriptlets use Fedora's dracut and kernel-install hooks; `limine-dracut` supplies `96-limine.install` to register and remove the ESP boot images. There is no unconditional updater-owned module/initramfs rebuild or per-group rollback. Package conflicts use an interactive `dnf upgrade --allowerasing` retry. User Flatpaks remain separate. The retired `omadora-sync` command and its grouped-update engine have been removed; updates do not invoke Nobara's updater. Fedora's kernels, DNF and dracut remain required; Arch's pacman and mkinitcpio are not substituted.
 - dnf5 CLI quirks the port works around: a bare `dnf list available` prints
   nothing (it wants a package-spec pattern), so the package picker lists
   candidates with `dnf repoquery --available --queryformat '%{name}\n'`

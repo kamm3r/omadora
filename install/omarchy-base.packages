@@ -139,7 +139,6 @@ plymouth-plugin-script
 libpq
 power-profiles-daemon
 python3-gobject
-python3-libdnf5
 python3-poetry-core
 ttf-ia-writer
 qemu-user-binfmt

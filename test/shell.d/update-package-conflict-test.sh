@@ -25,13 +25,6 @@ while [[ $1 == -* ]]; do shift; done
 exec "$@"
 STUB
 
-# Pin the omadora-sync branch on any host: the libdnf5 bindings are reported
-# installed whether or not this host has them.
-cat >"$stub_bin/omarchy-pkg-present" <<'STUB'
-#!/bin/bash
-[[ $1 == python3-libdnf5 ]]
-STUB
-
 # Fails the first upgrade with the report under test, then succeeds. Every call
 # records its arguments and which of its streams reached a terminal: dnf puts
 # its questions on stderr once it is not running -y, so a retry meant for a
@@ -54,14 +47,9 @@ fi
 echo "upgrade complete"
 STUB
 
-# omadora-sync runs first and never asks anything; the handler's interactive
-# retry is raw dnf. Both count against the same attempts and call log.
-# The update runs $OMARCHY_PATH/bin/omadora-sync, so it gets its own fake root.
 fake_root="$test_tmp/omarchy"
 mkdir -p "$fake_root/bin"
-cp "$stub_bin/dnf" "$fake_root/bin/omadora-sync"
-
-chmod +x "$stub_bin/sudo" "$stub_bin/systemd-run" "$stub_bin/omarchy-pkg-present" "$stub_bin/dnf" "$fake_root/bin/omadora-sync"
+chmod +x "$stub_bin/sudo" "$stub_bin/systemd-run" "$stub_bin/dnf"
 
 # Everything a blocked qemu-common upgrade leaves on stderr under dnf5, and no
 # more: under -y dnf declines to erase anything and only suggests
@@ -118,7 +106,7 @@ write_conflict_report
 run_on_terminal || fail "a package conflict is not resolved on a terminal"
 (($(cat "$test_tmp/attempts") == 2)) ||
   fail "a package conflict does not get an interactive retry"
-[[ $(call_line 1 args) == "cli" && " $(call_line 2 args) " == *" upgrade "* ]] ||
+[[ $(call_line 1 args) == "upgrade -y" && " $(call_line 2 args) " == *" upgrade "* ]] ||
   fail "the interactive retry does not upgrade"
 [[ " $(call_line 2 args) " != *" -y "* && " $(call_line 2 args) " != *" --assumeyes "* ]] ||
   fail "the interactive retry still answers dnf's questions itself"
@@ -176,6 +164,6 @@ write_conflict_report
 if OMARCHY_UPDATE_INTERACTIVE=1 run_headless; then
   fail "a caller reaches the interactive upgrade on its own"
 fi
-[[ $(call_line 1 args) == "cli" ]] ||
+[[ $(call_line 1 args) == "upgrade -y" ]] ||
   fail "a caller can ask for an interactive upgrade directly"
 pass "only the conflict handler can hand the upgrade to a person"

@@ -23,22 +23,12 @@ while [[ $1 == -* ]]; do shift; done
 exec "$@"
 STUB
 
-# Pin the omadora-sync branch on any host: the libdnf5 bindings are reported
-# installed whether or not this host has them.
-cat >"$stub_bin/omarchy-pkg-present" <<'STUB'
-#!/bin/bash
-[[ $1 == python3-libdnf5 ]]
-STUB
-
-# Fails the first upgrade with the report under test, then succeeds unless the
-# case asked for the retry to fail too. omadora-sync is the updater; dnf only
-# answers if the flow ever falls back to it.
-# The update runs $OMARCHY_PATH/bin/omadora-sync, so it gets its own fake root.
+# Fail the first DNF upgrade, then succeed unless retry failure is requested.
 fake_root="$test_tmp/omarchy"
 mkdir -p "$fake_root/bin"
-cat >"$fake_root/bin/omadora-sync" <<'STUB'
+cat >"$stub_bin/dnf" <<'STUB'
 #!/bin/bash
-[[ $1 == "cli" ]] || { echo "Unexpected omadora-sync call: $*" >&2; exit 99; }
+[[ $* == "upgrade -y" ]] || { echo "Unexpected DNF call: $*" >&2; exit 99; }
 
 attempt=$(($(cat "$DNF_ATTEMPTS") + 1))
 echo "$attempt" >"$DNF_ATTEMPTS"
@@ -66,13 +56,7 @@ echo "Unexpected rpm call: $*" >&2
 exit 99
 STUB
 
-cat >"$stub_bin/dnf" <<'STUB'
-#!/bin/bash
-echo "Unexpected dnf call: $*" >&2
-exit 99
-STUB
-
-chmod +x "$stub_bin/sudo" "$stub_bin/systemd-run" "$stub_bin/omarchy-pkg-present" "$fake_root/bin/omadora-sync" "$stub_bin/dnf" "$stub_bin/rpm"
+chmod +x "$stub_bin/sudo" "$stub_bin/systemd-run" "$stub_bin/dnf" "$stub_bin/rpm"
 
 replaced="$test_tmp/replaced"
 

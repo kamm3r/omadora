@@ -69,8 +69,6 @@ omarchy/                            built into          installed at
 
 bin/omarchy-*                  ──►  omarchy             /usr/bin/omarchy-*
                                                         (and symlinks in /usr/share/omarchy/bin/)
-bin/omadora-sync               ──►  omarchy             /usr/bin/omadora-sync
-default/omadora-sync/**        ──►  omarchy             /usr/share/omarchy/default/omadora-sync/
 bin/omarchy-debug,
 bin/omarchy-debug-idle,
 bin/omarchy-upload-log,
