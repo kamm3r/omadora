@@ -15,10 +15,16 @@ grep -qx 'layout=other' "$conf" && grep -qx 'BOOT_ROOT=/boot' "$conf" ||
   fail "kernel-install keeps Fedora's /boot layout"
 pass "kernel-install keeps Fedora's /boot layout"
 
-grep -q 'kernel-install.conf" /etc/kernel/install.conf$' "$ROOT/install/fedora/bootloader.sh" &&
-  grep -q 'limine.install" /etc/kernel/install.d/96-limine.install$' "$ROOT/install/fedora/bootloader.sh" ||
-  fail "the bootloader installer sets up kernel-install for Limine"
-pass "the bootloader installer sets up kernel-install for Limine"
+grep -q 'dnf copr enable -y kammer/limine' "$ROOT/install/fedora/bootloader.sh" &&
+  grep -q -- '--from-repo=copr:copr.fedorainfracloud.org:kammer:limine' "$ROOT/install/fedora/bootloader.sh" &&
+  grep -q 'limine limine-entry-tool limine-snapper-sync limine-dracut' "$ROOT/install/fedora/bootloader.sh" ||
+  fail "the bootloader installer selects the packaged Limine stack"
+if grep -Eq 'install .*(/usr/local/|/etc/kernel/)' "$ROOT/install/fedora/bootloader.sh"; then
+  fail "the installer must not overwrite RPM-owned boot integration"
+fi
+grep -qx '/usr/bin/limine-mkinitcpio' "$ROOT/install/fedora/bootloader.sh" ||
+  fail "the installer invokes the RPM-managed helper"
+pass "the bootloader installer selects packaged integration without overwriting it"
 
 # The plugin's paths are fixed literals; retarget a scratch copy at a fake /boot
 # and a stub limine-entry-tool that records its arguments.
@@ -154,8 +160,6 @@ pass "a machine without Limine is left alone"
 # The dracut plugin names the image in the "other" layout and hands every other
 # case to Fedora's plugin.
 dracut_plugin="$ROOT/install/fedora/dracut.install"
-grep -q 'dracut.install" /etc/kernel/install.d/50-dracut.install$' "$ROOT/install/fedora/bootloader.sh" ||
-  fail "the bootloader installer replaces Fedora's dracut plugin"
 [[ -x $dracut_plugin ]] || fail "the dracut plugin is executable"
 grep -Fxq 'fedora_plugin=/usr/lib/kernel/install.d/50-dracut.install' "$dracut_plugin" &&
   grep -Fxq 'boot_dir=/boot' "$dracut_plugin" || fail "the dracut plugin keeps its paths fixed"

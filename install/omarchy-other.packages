@@ -15,9 +15,11 @@ pulseaudio-libs
 intel-lpmd
 intel-media-driver
 libva-nvidia-driver
-# Limine bootloader comes from terra; the entry-tool/snapper-sync helpers
-# have no RPM and are built from source by install/fedora/bootloader.sh
+# Limine stack from kammer/limine COPR; generic helpers are RPM-owned.
 limine
+limine-entry-tool
+limine-snapper-sync
+limine-dracut
 linux-firmware
 kernel-headers
 kernel-devel

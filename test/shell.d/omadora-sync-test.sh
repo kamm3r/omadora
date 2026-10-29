@@ -24,7 +24,8 @@ assert set(groups) == set(GROUP_ORDER), groups.keys()
 counts = collections.Counter(name for names in groups.values() for name in names)
 assert not [name for name, count in counts.items() if count > 1], counts
 for key, name in (("kernel", "kernel-core"), ("graphic stack", "mesa-dri-drivers"), ("graphic stack", "akmod-nvidia"),
-                  ("system core packages", "limine"), ("system core packages", "python3-libdnf5"),
+                  ("system core packages", "limine"), ("system core packages", "limine-entry-tool"),
+                  ("system core packages", "limine-snapper-sync"), ("system core packages", "limine-dracut"), ("system core packages", "python3-libdnf5"),
                   ("desktop environment", "hyprland"), ("desktop environment", "quickshell")):
     assert name in groups[key], (key, name)
 parts = {group.key: group.packages for group in partition_pending_updates(["kernel-core", "hyprland", "firefox"], groups)}
@@ -50,6 +51,13 @@ def run(found, *, fail=None, dracut_enabled=True, group=kernel, packages=("kerne
                                       command_finder=lambda name: name if name in found else None,
                                       command_runner=runner)
     return outcome, calls
+
+# A stale /usr/local/sbin helper may precede the RPM helper on PATH.
+outcome, calls = run({"/usr/bin/limine-mkinitcpio", "limine-mkinitcpio", "dracut"})
+assert outcome.success and calls == [["/usr/bin/limine-mkinitcpio"]], calls
+# Prefer the packaged path even if privileged PATH omits it.
+outcome, calls = run({"/usr/bin/limine-mkinitcpio", "dracut"})
+assert outcome.success and calls == [["/usr/bin/limine-mkinitcpio"]], calls
 
 outcome, calls = run({"akmods", "limine-mkinitcpio", "dracut"})
 assert outcome.success and calls == [["akmods", "--force"], ["limine-mkinitcpio"]], calls

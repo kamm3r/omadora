@@ -107,6 +107,9 @@ dracut-config-rescue
 plymouth
 plymouth-scripts
 limine
+limine-entry-tool
+limine-snapper-sync
+limine-dracut
 linux-firmware
 linux-firmware-whence
 amd-gpu-firmware

@@ -3,7 +3,7 @@
 # packages -> config -> hardware).
 #
 # Repos:
-#   terra                      - limine, mise, usage-cli,
+#   terra                      - mise, usage-cli,
 #                                uwsm, golang-github-jesseduffield-lazygit,
 #                                asusctl, broadcom-wl, akmod-wl, xpadneo,
 #                                v4l2-relayd
@@ -12,6 +12,7 @@
 #                                quickshell
 #   kammer/omadora (COPR)      - Omadora, ported Omarchy applications, localsend,
 #                                ttf-ia-writer, ttf-jetbrains-mono-nerd-basic
+#   kammer/limine (COPR)       - limine, entry tools, Snapper and dracut integration
 #   RPM Fusion free + nonfree  - codecs/ffmpeg, obs-studio, intel-media-driver,
 #                                akmod-nvidia, libva-intel-driver, sunshine,
 #                                v4l2loopback (akmod)
@@ -37,6 +38,12 @@ fi
 
 if [[ ! -f /etc/yum.repos.d/_copr_copr.fedorainfracloud.org_kammer_omadora.repo ]]; then
   dnf copr enable -y kammer/omadora
+fi
+
+# COPR's Fedora repo file uses colons; also recognize older underscore names.
+if [[ ! -f /etc/yum.repos.d/_copr:copr.fedorainfracloud.org:kammer:limine.repo &&
+  ! -f /etc/yum.repos.d/_copr_copr.fedorainfracloud.org_kammer_limine.repo ]]; then
+  dnf copr enable -y kammer/limine
 fi
 
 # RPM Fusion (codecs, drivers). The release RPMs match the running Fedora
