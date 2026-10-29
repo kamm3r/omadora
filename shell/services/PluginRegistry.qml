@@ -482,9 +482,12 @@ QtObject {
           restoredEntry.id = sourceId
           config.bar.layout[cloneLocation.section][cloneLocation.index] = restoredEntry
         }
-      } else if (cloneLocation.kind === "plugin") {
-        config.plugins.splice(cloneLocation.index, 1)
       }
+      // A multi-kind clone can sit in the bar and in plugins[] at once, and
+      // either record alone would keep it active.
+      config.plugins = config.plugins.filter(function(entry) {
+        return !entry || Util.canonicalWidgetId(String(entry.id)) !== cloneId
+      })
     }
 
     if (cloneShouldRestoreSource(config, cloneId)) removeDisabled(config, sourceId)
@@ -542,12 +545,19 @@ QtObject {
 
       var isFirstParty = manifest && manifest.__isFirstParty
       var location = findEntryLocation(config, key)
+      // A widget that also carries a non-bar kind (panel, service, menu) can
+      // hold both a bar.layout entry and a plugins[] record. findEntryLocation
+      // matches any of them, so keying the restore off it left a widget whose
+      // bar entry was removed (disable) unreplaceable (enable) while a residual
+      // plugins[] record survived: the enable branch never ran and the layout
+      // entry stayed gone. Key the restore off bar presence instead.
+      var onBar = findBarLocation(config, key, "").found
 
       if (value) {
         removeDisabled(config, key)
         var entry = { id: key }
         var insertedWithPlacement = false
-        if (!location.found && isBarWidget) {
+        if (!onBar && isBarWidget) {
           var sourceLocation = clonedFrom ? findEntryLocation(config, clonedFrom) : { found: false }
           if (sourceLocation.kind === "bar") {
             var sourceEntry = config.bar.layout[sourceLocation.section][sourceLocation.index]
@@ -690,13 +700,12 @@ QtObject {
   property Process watcherReaper: Process {
     onExited: {
       localPluginWatcher.running = true
-      registry.rescan()
     }
   }
 
   function reapOrphanedPluginWatchers() {
     watcherReaper.command = ["bash", "-c",
-      "for p in $(pgrep -f '[i]notifywait -m -r -q -e close_write,create,delete,move' || true); do "
+      "for p in $(pgrep -f '[i]notifywait -m -r( -q)? -e close_write,create,delete,move' || true); do "
         + "tr '\\0' '\\n' < \"/proc/$p/cmdline\" 2>/dev/null | grep -Fxq \"$1\" || continue; "
         + "parent=$(ps -o ppid= -p \"$p\" 2>/dev/null | tr -d ' '); "
         + "[[ $parent =~ ^[0-9]+$ ]] || continue; "
@@ -714,24 +723,38 @@ QtObject {
   }
 
   property Process localPluginWatcher: Process {
+    environment: ({ LC_ALL: "C" })
     command: [
       "inotifywait",
       "-m",
       "-r",
-      "-q",
       "-e",
       "close_write,create,delete,move",
       "--format",
       "%w%f",
       registry.pluginsDir
     ]
+    // Starting the process does not mean its recursive watches are attached.
+    // Scan only after readiness, including restarts, so edits cannot fall
+    // between the initial scan and the watcher becoming able to see them.
+    stderr: SplitParser {
+      onRead: function(line) {
+        if (line === "Watches established.") registry.rescan()
+        else if (line.indexOf("Setting up watches.") !== 0) console.warn("Plugin watcher:", line)
+      }
+    }
     stdout: SplitParser {
       onRead: function(path) {
         var pluginId = registry.localPluginIdForPath(path)
         if (pluginId) registry.localPluginChanged(pluginId)
       }
     }
-    onExited: localPluginWatcherRestart.restart()
+    onExited: {
+      // Watch exhaustion must not prevent the desktop from loading. A later
+      // successful restart scans again once its watches are established.
+      if (registry.registryRevision === 0) registry.rescan()
+      localPluginWatcherRestart.restart()
+    }
   }
 
   property Timer localPluginWatcherRestart: Timer {

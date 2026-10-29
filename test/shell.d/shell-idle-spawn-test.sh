@@ -440,6 +440,11 @@ if (( ${#unexpected[@]} > 0 )) && [[ -s $events ]]; then
   printf '# %s\n' "Spawns coincided with session events; watching once more:" >&2
   report "$events" | sed 's/^/# /' >&2
   watch_window "$events"
+  if (( ${#unexpected[@]} > 0 )) && [[ -s $events ]]; then
+    report "$events" | sed 's/^/# /' >&2
+    skip "desktop activity prevented a quiet idle-spawn measurement"
+    exit 0
+  fi
 fi
 
 (( ${#unexpected[@]} == 0 )) || fail "an idle shell starts no processes" "$(report "$events")"

@@ -98,3 +98,19 @@ run_suite
 [[ $output == *$'==> test/shell.d/shell-idle-spawn-test.sh\nok - overlap fixture ran'* && $output == *$'==> test/shell.d/z-last-test.sh'* ]] ||
   fail "the overlap file prints in file order" "$output"
 pass "the overlap file runs beside the pool and is reported in order"
+
+# A helper that requires Quickshell also requires the live compositor. Its
+# callers must wait for the parallel pool, just like direct compositor callers.
+cat >"$test_dir/test/shell.d/a-pool-test.sh" <<'SH'
+sleep 0.3
+touch "$(dirname "$0")/pool-finished"
+SH
+cat >"$test_dir/test/shell.d/e-quickshell-test.sh" <<'SH'
+require_quickshell() { :; }
+require_quickshell "scheduler fixture"
+[[ -f $(dirname "$0")/pool-finished ]] || exit 1
+SH
+run_suite
+(( status == 1 )) && [[ $output == *"1 of 8 test files failed:"* ]] ||
+  fail "Quickshell tests run after the parallel pool finishes" "$output"
+pass "Quickshell tests run after the parallel pool finishes"
