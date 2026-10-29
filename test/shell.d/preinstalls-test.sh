@@ -126,13 +126,13 @@ dropped:  ${dropped[*]}"
 pass "Install and Remove Preinstalls cover the same packages"
 
 for package in "${restored[@]}"; do
-  printf '%s\n' "${shipped[@]}" | grep -qxF "$package" ||
+  grep -qxF "$package" <<<"$(printf '%s\n' "${shipped[@]}")" ||
     fail "every preinstall is shipped in omarchy-base.packages" "$package is not shipped"
 done
 pass "every preinstall is shipped in omarchy-base.packages"
 
 for package in hype monologue omacalc omacut omawrite; do
-  printf '%s\n' "${restored[@]}" | grep -qxF "$package" ||
+  grep -qxF "$package" <<<"$(printf '%s\n' "${restored[@]}")" ||
     fail "preinstalls restore the packaged Omacom apps" "$package is missing"
 done
 pass "preinstalls restore the packaged Omacom apps"

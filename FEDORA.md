@@ -5,7 +5,13 @@ Command names, `$OMARCHY_PATH`, config layouts, themes, and the Quickshell
 desktop are unchanged; only the OS substrate was swapped. The Arch upstream is
 a readonly reference and is never modified.
 
-Upstream changes are synced through `958254e92` (October 27, 2026), preserving the Fedora differences below. Arch-only upstream work is left out: the Dell XPS 13 Panther Lake speaker firmware and display commits (pacman firmware packages and an `omarchy-update-pacman` retention step) and the OPR repository priority in `pacman.conf`.
+Upstream changes are synced through `84782475a` (October 29, 2026), preserving the Fedora differences below. Arch-only upstream work is left out: the Dell XPS 13 Panther Lake speaker firmware and display commits (pacman firmware packages and an `omarchy-update-pacman` retention step) and the OPR repository priority in `pacman.conf`.
+
+- The October 29 sync carries the native Wayland screensaver, persistent per-monitor scaling and GDK scaling, touchpad gestures with a migration preserving custom gestures, background-intro sequencing for theme and background changes, calmer clock press feedback, subscription-only agent sections with stale-usage tooltips, bounded wallpaper sampling, capture and download notification refinements, T3 Code mount recovery, and desktop test fixes. The native screensaver uses the published Fedora RPM; its optional Amiga demo bundle remains unshipped. PipeWire client and JACK drop-ins bypass stale portal realtime budgets, and a DNF-backed repair preserves noninteractive authorization and interrupted-repair recovery. Fedora retains its platform boot lifecycle; Surface Pro 11 Arch kernel/device-tree setup, Arch-only Quattro changes, and the upstream Arch VM/oligarchy CI remain excluded.
+
+- On Nobara, automatic orphan removal is skipped while `nobara-updater` is installed. Nobara protects codec packages and their installed dependencies even when DNF marks one unneeded; generic `dnf autoremove` can therefore be rejected. The codec guard stays enabled, and ordinary Fedora installs retain orphan cleanup.
+
+- Fedora's default inotify instance limit of 128 can be exhausted by the Quickshell desktop alongside Electron apps or a second development shell. The shipped limit is 1024, and migration `1793081529.sh` raises an existing lower runtime limit without reducing a higher one. Plugin discovery waits for watcher readiness, compositor-dependent tests run serially, and the idle-spawn guard reports a noisy measurement as skipped instead of treating desktop activity as polling.
 
 - The October 27 sync protects unreadable shell configuration from being overwritten, restores a panel-disabled laptop display when its last external display is unplugged, keeps unresolved FIDO2 authfile repairs pending and rechecks earlier completions, and stops background-intro frame polling once nothing is covered. It also carries upstream test cleanup and shared QML harnesses while retaining Fedora-specific hardware and privilege coverage. Arch-only Quattro and kernel migrations, N1x firmware/audio repairs, Snapdragon mkinitcpio modules, and removal of workarounds now handled by linux-omarchy 7.3-3 remain excluded; Fedora keeps its platform lifecycle and dracut setup.
 
@@ -158,43 +164,14 @@ Verified against Fedora 44 package names; see the header comments in
 `install/omarchy-base.packages` and `install/omarchy-other.packages` for the
 full Arch-to-Fedora map and the dropped list.
 
-## Bootloader: Limine from Terra, dracut underneath
+## Bootloader: Limine COPR, dracut underneath
 
-Per project decision the Limine stack is kept, not replaced with GRUB:
+The Limine stack is packaged in [kamm3r/limine-pkg](https://github.com/kamm3r/limine-pkg) and published in `kammer/limine` for Fedora 44 x86_64.
 
-- `limine` itself installs from Terra (`install/fedora/bootloader.sh`).
-- `limine-entry-tool` / `limine-snapper-sync` / `limine-snapper-restore` have
-  no RPMs and are built from source into `/usr/local/bin` (same recipe as the
-  reference working set); the installer verifies each one exists.
-- `install/fedora/limine-mkinitcpio` is the vendored dracut-backed
-  implementation of the Arch `limine-mkinitcpio-hook` helper (`dracut -f
-  /boot/initramfs-<kver>.img <kver>` for each installed kernel, then
-  re-register it with `limine-entry-tool`). The output path is explicit
-  because dracut otherwise writes into `<ESP>/<machine-id>/<kver>/` once
-  `limine-entry-tool` has created the machine-id directory, and that
-  per-version directory does not exist. `install/fedora/limine-update`
-  re-deploys the bootloader binaries (like Arch's helper of the same name),
-  so all existing callers work unchanged. Both install to `/usr/local/bin`
-  via `install/fedora/bootloader.sh`. The updater resolves the shim by its absolute path when the privileged PATH omits `/usr/local/bin`; the shim invokes `limine-entry-tool` by absolute path too. Migration `1791892610.sh` refreshes an existing shim with that fix and the current kernel/initramfs argument order.
-- Kernel packages reach Limine through `kernel-install` rather than pacman
-  hooks. The same machine-id directory makes `kernel-install` pick a Boot
-  Loader Specification layout on the ESP, where `20-grub.install` skips
-  `/boot` and new kernels land as ESP copies nothing boots, so
-  `install/fedora/kernel-install.conf` pins `layout=other` and
-  `BOOT_ROOT=/boot` as `/etc/kernel/install.conf`. In that layout Fedora's
-  `50-dracut.install` passes dracut an empty output path (a quoted empty
-  `$UEFI_OPTS`), and dracut then picks the same missing ESP directory, so
-  `install/fedora/dracut.install` takes its place as
-  `/etc/kernel/install.d/50-dracut.install`, naming
-  `/boot/initramfs-<kver>.img` and handing any other layout back to Fedora's.
-  `install/fedora/limine.install`, installed as
-  `/etc/kernel/install.d/96-limine.install`, then registers each added kernel
-  with `limine-entry-tool` and removes it on uninstall. It calls the tool by
-  absolute path because RPM scriptlets leave `/usr/local/bin` off PATH.
-  `bootloader.sh` installs all three. On existing installs migration
-  `1790575242.sh` adds the layout and the Limine plugin and clears the ESP
-  copies the old layout left, and `1790587666.sh` adds the dracut plugin and
-  reruns `kernel-install add` for any kernel still missing its image.
+- `install/fedora/repos.sh` enables the repository. `install/fedora/bootloader.sh` also enables it when run independently and explicitly selects it to install `limine`, `limine-entry-tool`, `limine-snapper-sync`, and `limine-dracut`.
+- `limine-dracut` owns `/usr/bin/limine-mkinitcpio` (the dracut-backed compatibility command), `/usr/bin/limine-update`, kernel-install configuration, the dracut override, and `/usr/lib/kernel/install.d/96-limine.install`. The installer no longer copies source helpers over those files or installs commands under `/usr/local`.
+- Kernel-install uses `layout=other` and `/boot` image paths; the dracut plugin explicitly names `/boot/initramfs-<kver>.img`, and the Limine plugin registers added kernels and removes deleted ones. Other layouts are delegated to Fedora's dracut plugin.
+- Omadora keeps its boot-menu defaults, entry-tool drop-ins, dracut policy, hardware settings, and explicit first-install image rebuild. Existing source-installed machines require an explicit helper migration; old migration scripts and their source fixtures remain for historical compatibility.
 - `etc/dracut.conf.d/omarchy.conf` replaces the mkinitcpio `HOOKS=` list
   (`etc/mkinitcpio.conf.d/omarchy_hooks.conf` stays in tree as reference).
   Hardware quirks that wrote `/etc/mkinitcpio.conf.d/*.conf` (nvidia, apple-t2,

@@ -3,7 +3,7 @@
 # Lines starting with # are notes and are ignored by installers.
 #
 # Repos needed beyond Fedora proper (enabled by install scripts):
-#   terra                    - limine, mise, usage-cli, uwsm,
+#   terra                    - mise, usage-cli, uwsm,
 #                              golang-github-jesseduffield-lazygit, asusctl,
 #                              broadcom-wl
 #   lionheartp/Hyprland COPR - hyprland, hyprpicker, hyprsunset,
@@ -22,6 +22,7 @@ hype
 monologue
 omacalc
 omacut
+omarchy-screensaver
 omasnap
 omawrite
 owe
@@ -147,6 +148,7 @@ qrencode
 qt6-qtimageformats
 quickshell
 ripgrep
+rtkit
 ruby
 sddm
 signed
