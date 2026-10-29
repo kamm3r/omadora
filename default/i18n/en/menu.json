@@ -1205,6 +1205,9 @@
   "update.channel": {
     "label": "Channel"
   },
+  "update.kernel": {
+    "label": "Kernel"
+  },
   "update.config": {
     "label": "Config",
     "title": "Reset to default"
