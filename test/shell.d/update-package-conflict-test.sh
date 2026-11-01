@@ -5,6 +5,7 @@ set -euo pipefail
 source "$(dirname "$0")/base-test.sh"
 
 require_command script
+require_command python3
 
 test_tmp=$(mktemp -d)
 trap 'rm -rf "$test_tmp"' EXIT
@@ -31,6 +32,11 @@ STUB
 # person has to keep that stream.
 cat >"$stub_bin/dnf" <<'STUB'
 #!/bin/bash
+if [[ ${LIVE_PROGRESS_TEST:-} == 1 ]]; then
+  echo "Building NVIDIA modules" >&2
+  read -r acknowledgement
+  exit 0
+fi
 attempt=$(($(cat "$DNF_ATTEMPTS") + 1))
 echo "$attempt" >"$DNF_ATTEMPTS"
 {
@@ -167,3 +173,25 @@ fi
 [[ $(call_line 1 args) == "upgrade -y" ]] ||
   fail "a caller can ask for an interactive upgrade directly"
 pass "only the conflict handler can hand the upgrade to a person"
+
+# DNF must still be running when its status reaches the caller, rather than
+# revealing everything only after the transaction exits.
+mapfile -t environment < <(update_env)
+env "${environment[@]}" LIVE_PROGRESS_TEST=1 python3 - "$ROOT" <<'PYTEST'
+import select
+import subprocess
+import sys
+
+process = subprocess.Popen(
+    ["bash", sys.argv[1] + "/bin/omarchy-update-system-pkgs"],
+    stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
+)
+try:
+    assert select.select([process.stderr], [], [], 3)[0], "progress hidden until DNF exits"
+    assert process.stderr.readline() == b"Building NVIDIA modules\n"
+    assert process.poll() is None, "DNF already exited before progress was displayed"
+finally:
+    process.communicate(b"continue\n", timeout=5)
+assert process.returncode == 0
+PYTEST
+pass "DNF status is visible before the transaction finishes"

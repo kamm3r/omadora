@@ -25,13 +25,20 @@ trap 'rm -f "$errors"' EXIT
 # otherwise abort the upgrade. RPM refuses to overwrite files it doesn't own,
 # so those are cleared by the conflict handler below.
 #
-# Progress bars stay on stdout. Errors are on stderr, kept for the conflict
-# handler below; LC_ALL=C is what keeps them parseable in any locale.
-if LC_ALL=C omarchy-update-dnf dnf upgrade -y 2>"$errors"; then
-  cat "$errors" >&2
+# DNF also writes transaction progress and scriptlet output to stderr. Show it
+# live while keeping the report for conflict recovery. Drain tee before reading
+# that report so the handler always receives the complete error.
+exec {progress_fd}> >(tee "$errors" >&2)
+progress_pid=$!
+updated=0
+if LC_ALL=C omarchy-update-dnf dnf upgrade -y 2>&$progress_fd; then
+  updated=1
+fi
+exec {progress_fd}>&-
+wait "$progress_pid"
+if (( updated )); then
   exit 0
 fi
-cat "$errors" >&2
 
 # The handler takes it from here: it clears files dnf doesn't own yet and
 # runs this again, and puts a package conflict to whoever started the update.
