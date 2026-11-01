@@ -290,8 +290,8 @@ export XDG_CONFIG_HOME=$work/config
 session_env=$XDG_CONFIG_HOME/uwsm/env.d/50-omarchy-language
 printf '#da_DK.UTF-8 UTF-8\n' >"$OMARCHY_LOCALE_GEN"
 
-# Stub the outside world: locale-gen records its argument, notifications
-# record their text, and omarchy-language itself is the real one via PATH.
+# Stub the outside world: dnf records the language pack it installs,
+# notifications record their text, and omarchy-language is the real helper.
 mkdir -p "$work/stubs"
 cat >"$work/stubs/dnf" <<'STUB'
 #!/bin/bash
@@ -315,9 +315,11 @@ cat >"$work/stubs/omarchy-restart-shell" <<'STUB'
 #!/bin/bash
 echo "restart" >>"$SESSION_ENV_LOG"
 STUB
-# sudo and pkexec record which one elevated and what it ran, then run it
-# as-is. sudo answers the long listing (`sudo -n -l -l`) with the
-# passwordless grant only when TEST_SUDO_GRANT is set, the way a machine with
+# sudo and pkexec record which one elevated and what it ran, then run this
+# checkout's copy of it: omarchy-language asks for /usr/bin's, which is the
+# installed package's helper wherever Omarchy is installed. sudo answers the
+# long listing (`sudo -n -l -l`) with the passwordless grant only when
+# TEST_SUDO_GRANT is set, the way a machine with
 # etc/sudoers.d/omarchy-locale-generate installed does.
 cat >"$work/stubs/sudo" <<'STUB'
 #!/bin/bash
@@ -328,12 +330,12 @@ fi
 flag=""
 if [[ $1 == "-n" ]]; then flag=" -n"; shift; fi
 echo "sudo$flag $(basename "$1") $2" >>"$ELEVATE_LOG"
-exec "$@"
+exec "$OMARCHY_PATH/bin/$(basename "$1")" "${@:2}"
 STUB
 cat >"$work/stubs/pkexec" <<'STUB'
 #!/bin/bash
 echo "pkexec $(basename "$1") $2" >>"$ELEVATE_LOG"
-exec "$@"
+exec "$OMARCHY_PATH/bin/$(basename "$1")" "${@:2}"
 STUB
 chmod +x "$work/stubs/"*
 export PATH="$work/stubs:$PATH"
@@ -412,7 +414,7 @@ da_changed_raw=$(jq -r '."language.changed"' "$ROOT/default/i18n/da/cli.json")
 assert_bash_equal "$(omarchy-i18n language.changed 'Research & Development')" "${da_changed_raw//%1/"Research & Development"}" "omarchy-i18n keeps ampersands in arguments literal"
 
 # With the locale already generated, picking the language needs no
-# privilege at all: no password prompt, no locale-gen.
+# privilege at all: no password prompt, no package installation.
 cat >"$work/stubs/locale" <<'STUB'
 #!/bin/bash
 if [[ $1 == "-a" ]]; then printf 'en_US.utf8\nda_DK.utf8\n'; else echo "LANG=da_DK.UTF-8"; fi

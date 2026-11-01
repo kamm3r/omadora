@@ -67,3 +67,13 @@ if bash "$helper" 2>/dev/null; then
   fail "an unwritable mpv configuration reports failure"
 fi
 pass "an unwritable mpv configuration reports failure"
+
+# New Intel GPUs can have only the generic PCI name, with no Iris/Xe/Arc tag.
+intel_packages=$(
+  lspci() { echo '00:02.0 VGA compatible controller: Intel Corporation [Intel Graphics]'; }
+  omarchy-pkg-add() { printf '%s\n' "$*"; }
+  source "$ROOT/install/hardware/intel/video-acceleration.sh"
+)
+[[ $intel_packages == "intel-media-driver libvpl intel-vpl-gpu-rt" ]] ||
+  fail "generically named Intel GPUs receive Fedora video acceleration packages" "$intel_packages"
+pass "generically named Intel GPUs receive Fedora video acceleration packages"

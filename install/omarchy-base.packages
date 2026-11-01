@@ -23,6 +23,7 @@ monologue
 omacalc
 omacut
 omarchy-screensaver
+omarchy-speedtest
 omasnap
 omawrite
 owe
@@ -69,7 +70,8 @@ fcitx5-qt
 fcitx5-table-extra
 fd-find
 ffmpegthumbnailer
-firewalld
+ufw
+ufw-docker
 flatpak
 fontconfig
 fontawesome-6-free-fonts
@@ -178,6 +180,7 @@ xdg-desktop-portal-gtk
 xdg-desktop-portal-hyprland
 xdg-terminal-exec
 xournalpp
+xsetroot
 yaru-icon-theme
 yt-dlp
 zbar
@@ -205,7 +208,6 @@ qt6-qtwayland-devel
 # pacman-contrib (pacman tooling; use dnf clean/autoremove)
 # qt6-multimedia, qt6-multimedia-ffmpeg (superseded by OWE; shell is image-only, video via OWE lock feed)
 # tzupdate (available as an optional Omadora COPR RPM; Fedora uses chrony)
-# ufw, ufw-docker (replaced by firewalld; see install/config/firewall.sh)
 # webp-pixbuf-loader (retired; WebP is in gdk-pixbuf2)
 # yay (Arch-only AUR helper; dnf + COPR replace it)
 # inetutils (split into hostname/telnet/tftp/ftp above)

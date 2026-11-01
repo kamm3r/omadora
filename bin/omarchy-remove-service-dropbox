@@ -5,7 +5,9 @@
 
 dropbox-cli stop 2>/dev/null || true
 omarchy-plugin-disable omarchy.dropbox
-omarchy-pkg-drop dropbox dropbox-cli libappindicator-gtk3 python-gpgme nautilus-dropbox
+omarchy-pkg-drop dropbox dropbox-cli python-gpgme nautilus-dropbox
+
+# Keep the shared tray library; other applications may still need it.
 
 echo ""
 echo "Dropbox has been removed."

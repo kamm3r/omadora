@@ -114,3 +114,9 @@ run_suite
 (( status == 1 )) && [[ $output == *"1 of 8 test files failed:"* ]] ||
   fail "Quickshell tests run after the parallel pool finishes" "$output"
 pass "Quickshell tests run after the parallel pool finishes"
+
+# lua with no script argument runs stdin but ignores its error and exits 0, so
+# assertions in a bare heredoc cannot fail their test. lua - treats it as a script.
+stdin_lua=$(rg -l -P '\blua[[:space:]]*<<' "$SHELL_TEST_DIR" || true)
+[[ -z $stdin_lua ]] || fail "shell tests run Lua heredocs as scripts" "$stdin_lua"
+pass "shell tests run Lua heredocs as scripts"

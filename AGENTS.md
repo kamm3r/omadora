@@ -100,7 +100,7 @@ Exceptions are allowed for migration and package-helper scripts where the helper
 
 This tree is a Fedora port of Arch-based Omarchy. `FEDORA.md` records every
 deliberate divergence (dnf5 instead of pacman, Limine from Terra plus a
-dracut-backed `limine-mkinitcpio` shim, firewalld instead of UFW, package
+dracut-backed `limine-mkinitcpio` shim, Fedora package
 renames). Read it before touching `bin/omarchy-pkg-*`, `bin/omarchy-update-*`,
 `install/`, `etc/`, or `default/pacman/`.
 

@@ -12,52 +12,41 @@ trap 'rm -rf "$test_dir"' EXIT
 
 cat >"$stub_bin/omarchy-cmd-present" <<'STUB'
 #!/bin/bash
-[[ $1 == "firewall-cmd" && ${FIREWALLD_PRESENT:-1} == 1 ]]
+[[ $1 == "ufw" && ${UFW_PRESENT:-1} == 1 ]]
 STUB
 
-# firewalld's permanent config as one "kind value" line per entry. Queries exit
-# 1 for an absent entry, as firewall-cmd does.
 cat >"$stub_bin/sudo" <<'STUB'
 #!/bin/bash
 set -euo pipefail
 
 printf '%s\n' "$*" >>"${CALL_LOG:?}"
 [[ $1 == "systemctl" ]] && exit 0
-[[ $1 == "firewall-cmd" ]] || exit 97
+[[ $1 == "ufw" ]] || exit 97
 shift
 
-if [[ $* == "--reload" ]]; then
-  operation=reload
-elif [[ $1 == "--permanent" && $2 =~ ^--(query|remove)-(rich-rule|service|port)=(.*)$ ]]; then
-  operation=${BASH_REMATCH[1]}
-  entry="${BASH_REMATCH[2]} ${BASH_REMATCH[3]}"
-else
-  exit 97
-fi
-
-case "${entry:-}" in
-  "rich-rule rule service name=\"ssh\" limit value=\"25/minute\" accept") name=limit ;;
-  "service ssh") name=service ;;
-  "port 22/tcp") name=port ;;
-  "") name=reload ;;
+case "$*" in
+  "--force delete limit 22/tcp") failure=delete-limit; rule='limit 22/tcp' ;;
+  "--force delete allow 22/tcp") failure=delete-port; rule='allow 22/tcp' ;;
+  "--force delete allow ssh") failure=delete-service; rule='allow ssh' ;;
+  "--force delete limit ssh") failure=delete-service-limit; rule='limit ssh' ;;
+  "--force delete allow to any app SSH") failure=delete-app-allow; rule='allow app SSH' ;;
+  "--force delete limit to any app SSH") failure=delete-app-limit; rule='limit app SSH' ;;
+  reload) failure=reload ;;
   *) exit 97 ;;
 esac
 
-if [[ ${FAIL_FIREWALLD:-} == "$operation-$name" || ${FAIL_FIREWALLD:-} == "$name" ]]; then
-  printf 'injected firewalld failure: %s\n' "${FAIL_FIREWALLD}" >&2
-  exit 252
+if [[ ${FAIL_UFW:-} == "$failure" ]]; then
+  printf 'injected ufw failure: %s\n' "$failure" >&2
+  exit 1
 fi
+[[ $failure == "reload" ]] && exit 0
 
-case $operation in
-  reload) exit 0 ;;
-  query) grep -Fxq "$entry" "${FIREWALLD_STATE:?}" ;;
-  remove)
-    grep -Fxq "$entry" "$FIREWALLD_STATE" || { echo "Warning: NOT_ENABLED" >&2; exit 0; }
-    next="$FIREWALLD_STATE.next"
-    grep -Fxv "$entry" "$FIREWALLD_STATE" >"$next" || true
-    mv "$next" "$FIREWALLD_STATE"
-    ;;
-esac
+next="${UFW_STATE:?}.next"
+: >"$next"
+while IFS= read -r current || [[ -n $current ]]; do
+  [[ $current == "$rule" ]] || printf '%s\n' "$current" >>"$next"
+done <"$UFW_STATE"
+mv "$next" "$UFW_STATE"
 STUB
 
 cat >"$stub_bin/gum" <<'STUB'
@@ -72,18 +61,18 @@ prepare_case() {
   case_dir="$test_dir/$name"
   home="$case_dir/home"
   calls="$case_dir/calls"
-  state="$case_dir/firewalld-state"
+  state="$case_dir/ufw-state"
   mkdir -p "$home/.ssh"
   printf 'ssh-ed25519 fake-key test@example\n' >"$home/.ssh/authorized_keys"
   : >"$calls"
-  printf '%s\n' 'rich-rule rule service name="ssh" limit value="25/minute" accept' 'service ssh' 'port 22/tcp' 'service https' >"$state"
+  printf '%s\n' 'limit 22/tcp' 'allow 22/tcp' 'allow ssh' 'limit ssh' 'allow app SSH' 'limit app SSH' 'allow 443/tcp' >"$state"
 }
 
 run_remove() {
   local failure="${1:-}"
   set +e
   output=$(env HOME="$home" PATH="$stub_bin:$ROOT/bin:/usr/bin:/bin" \
-    CALL_LOG="$calls" FIREWALLD_STATE="$state" FIREWALLD_PRESENT="${FIREWALLD_PRESENT:-1}" FAIL_FIREWALLD="$failure" \
+    CALL_LOG="$calls" UFW_STATE="$state" UFW_PRESENT="${UFW_PRESENT:-1}" FAIL_UFW="$failure" \
     bash "$remove" 2>&1)
   status=$?
   set -e
@@ -98,32 +87,25 @@ assert_no_success_claim() {
 prepare_case standard
 run_remove
 (( status == 0 )) || fail "removal succeeds with standard SSH rules" "$output"
-[[ $(<"$state") == 'service https' ]] || fail "removal deletes only standard SSH rules" "$(cat "$state")"
+[[ $(<"$state") == 'allow 443/tcp' ]] || fail "removal deletes only standard SSH rules" "$(cat "$state")"
 [[ -s $home/.ssh/authorized_keys ]] || fail "declined key removal preserves authorized keys"
+pass "removal deletes all standard SSH rules"
 
-: >"$calls"
-run_remove
-(( status == 0 )) || fail "repeated removal accepts absent rules" "$output"
-[[ $(<"$state") == 'service https' ]] || fail "repeated removal preserves unrelated rules"
-! grep -q -- '--remove-' "$calls" || fail "repeated removal only queries absent rules" "$(cat "$calls")"
-! grep -q 'NOT_ENABLED' <<<"$output" || fail "repeated removal stays quiet" "$output"
-pass "removal deletes all standard SSH rules, preserves HTTPS, and is idempotent"
-
-for failure in query-limit remove-limit query-service remove-service query-port remove-port reload; do
+for failure in delete-limit delete-port delete-service delete-service-limit delete-app-allow delete-app-limit reload; do
   prepare_case "$failure"
   run_remove "$failure"
   (( status != 0 )) || fail "$failure failure makes removal fail" "$output"
-  grep -Fq "injected firewalld failure: $failure" <<<"$output" ||
+  grep -Fq "injected ufw failure: $failure" <<<"$output" ||
     fail "$failure stderr reaches the caller" "$output"
   assert_no_success_claim
   [[ -s $home/.ssh/authorized_keys ]] || fail "$failure preserves authorized keys"
 done
-pass "each firewalld query, removal, and reload failure is returned without false success"
+pass "each UFW deletion and reload failure is returned without false success"
 
-prepare_case no-firewalld
-FIREWALLD_PRESENT=0 run_remove
-(( status == 0 )) || fail "removal succeeds without firewalld" "$output"
-! grep -q '^firewall-cmd ' "$calls" || fail "no-firewalld removal does not invoke firewall-cmd" "$(cat "$calls")"
+prepare_case no-ufw
+UFW_PRESENT=0 run_remove
+(( status == 0 )) || fail "removal succeeds without UFW" "$output"
+! grep -q '^ufw ' "$calls" || fail "no-UFW removal does not invoke UFW" "$(cat "$calls")"
 assert_no_success_claim
-[[ -s $home/.ssh/authorized_keys ]] || fail "no-firewalld removal preserves authorized keys"
-pass "no-firewalld removal does not claim firewall success"
+[[ -s $home/.ssh/authorized_keys ]] || fail "no-UFW removal preserves authorized keys"
+pass "no-UFW removal does not claim firewall success"

@@ -5,7 +5,18 @@ Command names, `$OMARCHY_PATH`, config layouts, themes, and the Quickshell
 desktop are unchanged; only the OS substrate was swapped. The Arch upstream is
 a readonly reference and is never modified.
 
-Upstream changes are synced through `84782475a` (October 29, 2026), preserving the Fedora differences below. Arch-only upstream work is left out: the Dell XPS 13 Panther Lake speaker firmware and display commits (pacman firmware packages and an `omarchy-update-pacman` retention step) and the OPR repository priority in `pacman.conf`.
+Upstream changes are synced through `7eedd1736` (November 1, 2026), preserving the Fedora differences below. Arch-only upstream work is left out: the Dell XPS 13 Panther Lake speaker firmware and display commits (pacman firmware packages and an `omarchy-update-pacman` retention step) and the OPR repository priority in `pacman.conf`.
+
+- The November 1 follow-up adds Extend/Mirror controls, mirrors the internal screen to every external display, hides the layout map for a lone display, and keeps bar/IPC handlers stable across monitor moves. The ASUS Zenbook A16 firmware, boot/unlock/sleep setup and migration `1793364921.sh` remain excluded: the firmware package is ARM-only in the companion catalog, and Fedora retains its platform-owned dracut lifecycle.
+
+- The November 1 sync carries the display layout map, per-monitor resolution/refresh/rotation controls and settings migration; multi-monitor background transitions; tray icon tinting and alignment; shell restart recovery; media, notification, DDC, battery, night-light and agent fixes; capture shortcut preservation; terminal font-size preservation; offline mise shim creation; SSH setup that waits for an authorized key before listening; and updated manuals/translations. Dictation uses Alt + Space with existing bindings preserved by migration, and Hex joins the backend integrations. Hex and Superwhisper remain unavailable in the Fedora package catalog, so their installers stop at package installation until RPMs ship. Intel GPUs named only “[Intel Graphics]” use Fedora’s `intel-vpl-gpu-rt`; XWayland cursor restoration installs `xsetroot`.
+- Upstream’s ordinary-sudo simplification (`56a910b0e`) is deferred: Fedora retains the update authorization cleanup and the hardened passwordless helper contract implemented by `omarchy-settings` RPM scriptlets. The locale-generation change is unnecessary because Fedora already installs only the requested precompiled language pack. Arch-to-Quattro repair changes and the Apple Silicon bashrc repair are not carried; Fedora’s provisioning and boot lifecycle remain authoritative.
+
+- The October 31 sync seeds the Quake console from `workspace.created`, keeps the background still on screen until OWE takes over a video background, and sets `HYPRLAND_NO_RT=1` so Hyprland 0.57 (also Fedora's version) is not killed by its rtkit realtime watchdog. Upstream's Glymur pin control and interconnect modules extend the Snapdragon mkinitcpio list, which Fedora does not carry.
+
+- The October 30 sync makes the installer timezone picker searchable even with a detected or preset timezone, refreshes Ethereal’s roadster wallpaper, and carries the Zenbook A16 UX3607OA speaker-tuning assets. The `asus-zenbook-a16-audio` topology/UCM package has no Fedora port in the companion catalog, so its installer hook, package-list entry, and migration `1793301931.sh` remain deferred until that RPM is available.
+
+- The follow-up October 29 sync carries centered bar glyphs and fullscreen click-through fixes, dropdown sizing and toggle fixes, hidden-button measurement, slider endpoint alignment, keyboard-backlight restore protection, udev-based webcam detection, transient migration reminders, Claude and VS Code theme refinements, Neovim transparency options, the 410ms window entrance, and refreshed manuals. Apple Silicon pacman channel templates and their tests remain excluded; Fedora keeps its DNF repository setup.
 
 - The October 29 sync carries the native Wayland screensaver, persistent per-monitor scaling and GDK scaling, touchpad gestures with a migration preserving custom gestures, background-intro sequencing for theme and background changes, calmer clock press feedback, subscription-only agent sections with stale-usage tooltips, bounded wallpaper sampling, capture and download notification refinements, T3 Code mount recovery, and desktop test fixes. The native screensaver uses the published Fedora RPM; its optional Amiga demo bundle remains unshipped. PipeWire client and JACK drop-ins bypass stale portal realtime budgets, and a DNF-backed repair preserves noninteractive authorization and interrupted-repair recovery. Fedora retains its platform boot lifecycle; Surface Pro 11 Arch kernel/device-tree setup, Arch-only Quattro changes, and the upstream Arch VM/oligarchy CI remain excluded.
 
@@ -16,7 +27,7 @@ Upstream changes are synced through `84782475a` (October 29, 2026), preserving t
 - The October 27 sync protects unreadable shell configuration from being overwritten, restores a panel-disabled laptop display when its last external display is unplugged, keeps unresolved FIDO2 authfile repairs pending and rechecks earlier completions, and stops background-intro frame polling once nothing is covered. It also carries upstream test cleanup and shared QML harnesses while retaining Fedora-specific hardware and privilege coverage. Arch-only Quattro and kernel migrations, N1x firmware/audio repairs, Snapdragon mkinitcpio modules, and removal of workarounds now handled by linux-omarchy 7.3-3 remain excluded; Fedora keeps its platform lifecycle and dracut setup.
 
 - The October 26 sync carries the translation refresh, notification action-aware shortcuts, anchored clock/weather popups, closing-popup input guards, agent shim discovery, monitor FALLBACK filtering, About localization, Git setup polish, and Jade Horse replacing Osaka Jade. The update keeps one authorization through the boot check; Fedora's third-party step remains unprivileged per-user Flatpaks. Hibernation resume uses a filesystem UUID on unencrypted devices and retains device-mapper names, with retryable boot rebuilds through Fedora's dracut-backed shim. Herdr starts with the graphical session only when its optional command is installed.
-- The new native `omarchy-speedtest` client has no Fedora RPM, so the existing fast.com helper and panel remain. Omasnap 1.23.0 supports `--notify`; screenshot action parity still requires updating the capture integration, rather than waiting for that option in a Fedora package. About keeps Fedora's DNF/RPM package-update date lookup.
+- Speed testing now uses the official `omarchy-speedtest` client and panel. Omasnap 1.23.0 supports `--notify`; screenshot action parity still requires updating the capture integration, rather than waiting for that option in a Fedora package. About keeps Fedora's DNF/RPM package-update date lookup.
 
 - The October 25 sync carries browser recovery when a configured handler disappears, separate full-size scratchpad and Quake-console workspaces, persistent floating-workspace titlebar loading when the plugin is installed, bar press feedback and indicator hover fixes, improved notification grouping, a normal 30-second low-battery toast, translated setup forms and first-run notifications, and bounded error-body reads in agent usage requests. A failed mise tool download now warns while the system update still completes boot verification and its reboot prompt.
 - The `omarchy-power-profiles-daemon` RPM carries upstream's four power-profile patches with Fedora service integration and the system-Python shebang repair. Its AMD/Intel driver selection remains unchanged. The Fedora migration preserves service activation and enablement across replacement of the stock package; Fedora's DNF reinstall path stays unchanged.
@@ -60,7 +71,7 @@ Upstream changes are synced through `84782475a` (October 29, 2026), preserving t
 - Arch Linux ARM/Apple Silicon package manifests, pacman keyring/image provisioning, mkinitcpio platform hooks, and Arch channel changes are not carried. The portable LUKS re-key journal and keyboard provisioning changes are carried with their shared helpers. USB/Thunderbolt authorization was added and reverted within this upstream range; neither its setup nor its cleanup migration is carried because Omadora never shipped it. Fedora's existing Limine/dracut implementation stays in charge; the console query boot fix applies through its compatible `limine-mkinitcpio` shim.
 - Input methods install Fedora's `fcitx5-mozc`, `fcitx5-hangul`, `fcitx5-chinese-addons`, and `fcitx5-chewing`. Locale repair installs `glibc-langpack-en` instead of editing `locale.gen` or running `locale-gen`.
 
-The default package list explicitly includes `hyprland-preview-share-picker` for the configured portal picker, plus `chrony`, `firewalld`, `flatpak`, and `systemd-resolved` for the Fedora setup and runtime helpers.
+The default package list explicitly includes `hyprland-preview-share-picker` for the configured portal picker, plus `chrony`, `ufw`, `ufw-docker`, `flatpak`, and `systemd-resolved` for the Fedora setup and runtime helpers.
 
 ## Package management: dnf5 instead of pacman
 
@@ -74,7 +85,7 @@ The default package list explicitly includes `hyprland-preview-share-picker` for
   Flathub repo, and `omarchy-update-aur-pkgs` runs `flatpak update --user`.
   RPM-land third-party sources (COPR, RPM Fusion, Terra) ride along with the
   regular `dnf upgrade`.
-- `bin/omarchy-update-system-pkgs` runs a direct `dnf upgrade -y` through `omarchy-update-dnf`, matching upstream's single package-manager transaction flow. Kernel RPM scriptlets use Fedora's dracut and kernel-install hooks; `limine-dracut` supplies `96-limine.install` to register and remove the ESP boot images. There is no unconditional updater-owned module/initramfs rebuild or per-group rollback. Package conflicts use an interactive `dnf upgrade --allowerasing` retry. User Flatpaks remain separate. The retired `omadora-sync` command and its grouped-update engine have been removed; updates do not invoke Nobara's updater. Fedora's kernels, DNF and dracut remain required; Arch's pacman and mkinitcpio are not substituted.
+- `bin/omarchy-update-system-pkgs` runs a direct `dnf upgrade -y` through `omarchy-update-dnf`, matching upstream's single package-manager transaction flow. Kernel RPM scriptlets use Fedora's dracut and kernel-install hooks; `limine-dracut` supplies `96-limine.install` to register and remove the ESP boot images. There is no unconditional updater-owned module/initramfs rebuild or per-group rollback. DNF stderr streams live to the terminal while a copy is retained for conflict recovery, so package and scriptlet progress remains visible during long transactions. Package conflicts use an interactive `dnf upgrade --allowerasing` retry. User Flatpaks remain separate. The retired `omadora-sync` command and its grouped-update engine have been removed; updates do not invoke Nobara's updater. Fedora's kernels, DNF and dracut remain required; Arch's pacman and mkinitcpio are not substituted.
 - dnf5 CLI quirks the port works around: a bare `dnf list available` prints
   nothing (it wants a package-spec pattern), so the package picker lists
   candidates with `dnf repoquery --available --queryformat '%{name}\n'`
@@ -183,14 +194,7 @@ The Limine stack is packaged in [kamm3r/limine-pkg](https://github.com/kamm3r/li
 
 - NVIDIA via RPM Fusion akmods (`akmod-nvidia`, `.i686` multilib instead of
   `lib32-*`); legacy pre-GSP branch uses `akmod-nvidia-470xx`.
-- Firewall is firewalld, not UFW: `install/config/firewall.sh` opens LocalSend
-  ports via `firewall-cmd`; sshd/sunshine scripts use rich rules (Tailscale
-  covered by its `100.64.0.0/10` CGNAT range). `ufw`/`ufw-docker` are dropped.
-  Where upstream's SSH removal deletes every standard UFW rule for port 22,
-  `omarchy-remove-security-sshd` removes the setup's rich rule, the `ssh`
-  service (which Fedora's default zone enables), and `22/tcp` from the default
-  zone, querying each first so absent entries stay quiet and real errors stop
-  the removal.
+- Firewall follows upstream UFW, including LocalSend rules, Docker DNS access, and ufw-docker forwarding protections. Fedora supplies UFW; Omadora packages the pinned ufw-docker helper. SSH and Sunshine use the upstream UFW rules, with Sunshine restricted to private LANs and the Tailscale interface. Fresh installs enable UFW and disable firewalld at boot without changing the installer kernel firewall. Existing installations require an explicit, backed-up switch; custom firewalld rules are not automatically translated.
 - Vulkan drivers are the single `mesa-vulkan-drivers`; `linux-firmware-marvell`
   is bundled in Fedora's `linux-firmware`; no Panther Lake kernel swap
   (stock kernel covers it); `sof-firmware` is `alsa-sof-firmware`;
@@ -299,3 +303,5 @@ The Limine stack is packaged in [kamm3r/limine-pkg](https://github.com/kamm3r/li
    `hardware/fedora-repos.sh`, `post-install/pacman.sh` replaced by
    `post-install/dnf.sh`)
 5. `omarchy-migrate --baseline` on fresh installs, then per-user setup.
+
+- Speed testing uses the official `omarchy-speedtest` client and panel against `speed.omarchy.org`, replacing the Fast.com shell fallback. The Fedora RPM builds upstream 0.2.1 with a private Go 1.27.3 compiler that is not installed at runtime.

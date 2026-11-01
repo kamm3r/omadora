@@ -7,7 +7,8 @@ set -e
 
 TCP_PORTS=(47984 47989 48010)
 UDP_PORTS=(5353 47998 47999 48000 48002 48010)
-PRIVATE_CIDRS=(10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 100.64.0.0/10)
+PRIVATE_CIDRS=(10.0.0.0/8 172.16.0.0/12 192.168.0.0/16)
+UFW_COMMENT="omarchy-sunshine"
 SUNSHINE_ADMIN_APP="Sunshine Admin"
 SUNSHINE_ADMIN_URL="https://localhost:47990"
 SUNSHINE_ADMIN_EXEC="omarchy-launch-webapp $SUNSHINE_ADMIN_URL --ignore-certificate-errors"
@@ -15,36 +16,44 @@ SUNSHINE_ICON_SOURCE="/usr/share/sunshine/web/images/logo-sunshine-45.png"
 HYPR_AUTOSTART_FILE="$HOME/.config/hypr/autostart.lua"
 HYPR_AUTOSTART_ENTRY='o.launch_on_start("sunshine")'
 
-# 100.64.0.0/10 covers the Tailscale CGNAT range, so Tailscale peers are
-# included without touching the shared tailscale0 interface zone.
-open_firewalld_port_for_private_lans() {
+open_ufw_port_for_private_lans() {
   local proto="$1"
   local port="$2"
   local cidr
 
   for cidr in "${PRIVATE_CIDRS[@]}"; do
-    sudo firewall-cmd --permanent \
-      --add-rich-rule="rule family=ipv4 source address=$cidr port port=$port protocol=$proto accept" >/dev/null
+    sudo ufw allow in proto "$proto" from "$cidr" to any port "$port" comment "$UFW_COMMENT" >/dev/null
   done
 }
 
-open_firewalld_ports() {
+open_ufw_port_for_tailscale() {
+  local proto="$1"
+  local port="$2"
+
+  if ip link show tailscale0 >/dev/null 2>&1; then
+    sudo ufw allow in on tailscale0 to any port "$port" proto "$proto" comment "$UFW_COMMENT" >/dev/null
+  fi
+}
+
+open_ufw_ports() {
   local port
 
-  if omarchy-cmd-missing firewall-cmd; then
-    echo "firewalld is not installed; skipping Sunshine firewall rules."
+  if omarchy-cmd-missing ufw; then
+    echo "UFW is not installed; skipping Sunshine firewall rules."
     return
   fi
 
   for port in "${TCP_PORTS[@]}"; do
-    open_firewalld_port_for_private_lans tcp "$port"
+    open_ufw_port_for_private_lans tcp "$port"
+    open_ufw_port_for_tailscale tcp "$port"
   done
 
   for port in "${UDP_PORTS[@]}"; do
-    open_firewalld_port_for_private_lans udp "$port"
+    open_ufw_port_for_private_lans udp "$port"
+    open_ufw_port_for_tailscale udp "$port"
   done
 
-  sudo firewall-cmd --reload
+  sudo ufw reload
 }
 
 install_admin_webapp() {
@@ -67,7 +76,7 @@ omarchy-pkg-add sunshine 2>/dev/null || flatpak install -y --user flathub dev.li
 systemctl --user enable --now sunshine 2>/dev/null || true
 
 echo "Opening Sunshine firewall ports..."
-open_firewalld_ports
+open_ufw_ports
 
 echo "Installing Sunshine admin web app..."
 install_admin_webapp

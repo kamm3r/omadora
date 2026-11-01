@@ -37,7 +37,7 @@ while (( $# > 0 )); do
   -h | --help)
     echo "Usage: omarchy-setup-security-sshd [--key=<public-key>] [--gh-keys <github-username>]"
     echo
-  echo "Sets up the OpenSSH server, opens the SSH port in the firewalld firewall,"
+  echo "Sets up the OpenSSH server, opens the SSH port in the UFW firewall,"
   echo "and authorizes an SSH key (from GitHub, pasted, or passed via --key)."
     echo
     echo "Passing --key or --gh-keys skips the prompts, so the command can run"
@@ -57,21 +57,32 @@ if [[ -n $KEY && -n $GITHUB_USER ]]; then
   exit 2
 fi
 
-setup_sshd() {
-  echo "Installing and starting the OpenSSH server..."
+install_openssh() {
+  echo "Installing the OpenSSH server..."
   omarchy-pkg-add openssh-server
-  sudo systemctl enable --now sshd.service
+
+  # sshd validates no config without host keys, and the server is not started
+  # until its config has been validated.
+  sudo ssh-keygen -A >/dev/null
+}
+
+# Reload rather than restart a server that is already running, so an
+# administrator already connected keeps their session.
+start_sshd() {
+  echo "Starting the OpenSSH server..."
+  sudo systemctl enable sshd.service
+  sudo systemctl reload-or-restart sshd.service
 }
 
 open_firewall() {
-  if omarchy-cmd-missing firewall-cmd; then
-    echo "firewalld is not installed; skipping firewall rule."
+  if omarchy-cmd-missing ufw; then
+    echo "UFW is not installed; skipping firewall rule."
     return
   fi
 
   echo "Opening the SSH port in the firewall (rate limited against brute force)..."
-  sudo firewall-cmd --permanent --add-rich-rule='rule service name="ssh" limit value="25/minute" accept' >/dev/null
-  sudo firewall-cmd --reload >/dev/null
+  sudo ufw limit 22/tcp comment "omarchy-sshd" >/dev/null
+  sudo ufw reload >/dev/null
 }
 
 valid_key() {
@@ -181,16 +192,13 @@ CONF
     sudo rm -f "$config"
     return 1
   fi
-
-  # Reload rather than restart so an administrator already connected keeps
-  # their session.
-  sudo systemctl reload sshd.service
 }
 
 echo -e "\e[32mSetting up SSH server access with key-based authentication.\n\e[0m"
 
-setup_sshd
-open_firewall
+# Nothing listens and no port opens until a key is authorized and passwords are
+# off, so a cancelled prompt or a rejected key leaves the machine as it was.
+install_openssh
 
 echo
 if [[ -n $KEY ]]; then
@@ -208,6 +216,8 @@ else
 fi
 
 disable_password_auth
+start_sshd
+open_firewall
 
 echo -e "\e[32m\nPerfect! The SSH server is running and your key is authorized.\e[0m"
 echo "Password logins are off; this machine now accepts authorized keys only."
